@@ -25,6 +25,7 @@ static constexpr int MODE_2D_EXPLICIT   = 0;
 static constexpr int MODE_2D_IMPLICIT   = 1;
 static constexpr int MODE_2D_PARAMETRIC = 2;
 static constexpr int MODE_3D_PARAMETRIC = 3;
+static constexpr int MODE_3D_SURFACE    = 4;
 static constexpr int MODE_SEPARATOR     = -1;
 static const QRegularExpression RX_X_OF_T("^x\\s*(\\(\\s*[tT]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
 static const QRegularExpression RX_Y_OF_T("^y\\s*(\\(\\s*[tT]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
@@ -66,6 +67,10 @@ static const QList<Example> g_examples = {
       "sin(t)+2*sin(2*t)", "cos(t)-2*cos(2*t)", "-sin(3*t)", 0, 6.28, 600, QColor(160,0,200) },
     Example{ "Viviani curve",                               MODE_3D_PARAMETRIC, {},{},{},
       "1-cos(t)", "sin(t)", "2*sin(t/2)",  0, 12.56, 600, QColor(0,180,100) },
+    Example{ "──── 3D Surface ────", MODE_SEPARATOR, {},{},{},{},{},{}, -5, 5, 100, Qt::blue },
+    Example{ "Paraboloid  z=x^2+y^2", MODE_3D_SURFACE, "x^2 + y^2", {},{},{},{},{}, -2, 2, 60, QColor(180,80,0) },
+    Example{ "Saddle  z=x^2-y^2", MODE_3D_SURFACE, "x^2 - y^2", {},{},{},{},{}, -2, 2, 60, QColor(100,70,200) },
+    Example{ "Wave  z=sin(x)*cos(y)", MODE_3D_SURFACE, "sin(x)*cos(y)", {},{},{},{},{}, -6.28, 6.28, 80, QColor(0,140,220) },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -135,6 +140,7 @@ QWidget *MainWindow::buildControlPanel() {
     m_modeCombo->addItem("2D General Curve  ( F(x,y)=0 )");
     m_modeCombo->addItem("2D Parametric  ( x(t), y(t) )");
     m_modeCombo->addItem("3D Parametric  ( x(t), y(t), z(t) )");
+    m_modeCombo->addItem("3D Surface  ( z = f(x,y) )");
     modeLayout->addWidget(m_modeCombo);
     connect(m_modeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::onModeChanged);
@@ -216,10 +222,19 @@ QGroupBox *MainWindow::buildEquationGroup() {
     f3->addRow("y(t) =", m_yExpr3D);
     f3->addRow("z(t) =", m_zExpr3D);
 
+    // ── 3D Surface ──
+    m_eq3DSurfaceWidget = new QWidget;
+    QFormLayout *f4 = new QFormLayout(m_eq3DSurfaceWidget);
+    f4->setContentsMargins(0,0,0,0);
+    m_surfaceExpr3D = new QLineEdit("sin(x)*cos(y)");
+    m_surfaceExpr3D->setPlaceholderText("e.g. x^2+y^2 or sin(x)*cos(y)");
+    f4->addRow("z(x,y) =", m_surfaceExpr3D);
+
     layout->addWidget(m_eq2DExplicitWidget);
     layout->addWidget(m_eq2DImplicitWidget);
     layout->addWidget(m_eq2DParamWidget);
     layout->addWidget(m_eq3DParamWidget);
+    layout->addWidget(m_eq3DSurfaceWidget);
 
     return group;
 }
@@ -297,14 +312,16 @@ void MainWindow::onModeChanged(int index) {
     bool is2DImplicit   = (index == MODE_2D_IMPLICIT);
     bool is2DParametric = (index == MODE_2D_PARAMETRIC);
     bool is3DParametric = (index == MODE_3D_PARAMETRIC);
+    bool is3DSurface    = (index == MODE_3D_SURFACE);
 
     if (m_eq2DExplicitWidget)   m_eq2DExplicitWidget->setVisible(is2DExplicit);
     if (m_eq2DImplicitWidget)   m_eq2DImplicitWidget->setVisible(is2DImplicit);
     if (m_eq2DParamWidget)      m_eq2DParamWidget->setVisible(is2DParametric);
     if (m_eq3DParamWidget)      m_eq3DParamWidget->setVisible(is3DParametric);
+    if (m_eq3DSurfaceWidget)    m_eq3DSurfaceWidget->setVisible(is3DSurface);
 
     // Switch canvas
-    m_canvasStack->setCurrentIndex(is3DParametric ? 1 : 0);
+    m_canvasStack->setCurrentIndex((is3DParametric || is3DSurface) ? 1 : 0);
 
     // Adjust range label
     QString label = is2DExplicit ? "x Range" : "t Range";
@@ -319,6 +336,7 @@ void MainWindow::onPlotClicked() {
     else if (mode == MODE_2D_IMPLICIT)   ok = generateCurve2DImplicit();
     else if (mode == MODE_2D_PARAMETRIC) ok = generateCurve2DParametric();
     else if (mode == MODE_3D_PARAMETRIC) ok = generateCurve3DParametric();
+    else if (mode == MODE_3D_SURFACE)    ok = generateSurface3D();
 
     if (ok) statusBar()->showMessage("Curve plotted successfully.");
 }
@@ -361,6 +379,8 @@ void MainWindow::onExampleSelected(int index) {
         m_xExpr3D->setText(ex.xp);
         m_yExpr3D->setText(ex.yp3);
         m_zExpr3D->setText(ex.zp3);
+    } else if (ex.mode == MODE_3D_SURFACE) {
+        m_surfaceExpr3D->setText(ex.y);
     }
 
     onPlotClicked();
@@ -709,6 +729,101 @@ bool MainWindow::generateCurve3DParametric() {
         logMessage(QString("Note: %1 point(s) skipped.").arg(invalidCount));
     else
         logMessage("Plotted 3D parametric: " + curve.label);
+
+    return true;
+}
+
+bool MainWindow::generateSurface3D() {
+    static constexpr float SURFACE_COLUMN_WIDTH_SCALE = 0.8f;
+    QString zStr = m_surfaceExpr3D->text().trimmed();
+    static const QRegularExpression RX_Z_OF_XY("^z\\s*(\\(\\s*[xX]\\s*,\\s*[yY]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
+    zStr.remove(RX_Z_OF_XY);
+    if (zStr.isEmpty()) {
+        logMessage("Error: z(x,y) expression is required.", true);
+        return false;
+    }
+
+    ExprParser zParser;
+    std::string err;
+    if (!zParser.compile(zStr.toStdString(), err)) {
+        logMessage("Parse error in z(x,y): " + QString::fromStdString(err), true);
+        return false;
+    }
+
+    double xMin = m_tMinSpin->value();
+    double xMax = m_tMaxSpin->value();
+    double yMin = xMin;
+    double yMax = xMax;
+    if (xMin >= xMax) {
+        logMessage("Error: Min must be less than Max.", true);
+        return false;
+    }
+
+    const int requestedSamples = m_samplesSpin->value();
+    const int grid = std::max(8, std::min(requestedSamples, 220));
+    const double xStep = (xMax - xMin) / (grid - 1);
+    const double yStep = (yMax - yMin) / (grid - 1);
+
+    std::vector<double> values((size_t)grid * (size_t)grid, 0.0);
+    std::vector<bool> valid((size_t)grid * (size_t)grid, false);
+    auto idx = [grid](int ix, int iy) { return (size_t)iy * (size_t)grid + (size_t)ix; };
+
+    int invalidCount = 0;
+    for (int iy = 0; iy < grid; ++iy) {
+        const double y = yMin + iy * yStep;
+        for (int ix = 0; ix < grid; ++ix) {
+            const double x = xMin + ix * xStep;
+            zParser.setVar("x", x);
+            zParser.setVar("y", y);
+            bool vz = true;
+            const double z = zParser.evaluate(vz);
+            const bool ok = vz && std::isfinite(z);
+            values[idx(ix, iy)] = z;
+            valid[idx(ix, iy)] = ok;
+            if (!ok) ++invalidCount;
+        }
+    }
+
+    bool addedAny = false;
+    for (int iy = 0; iy < grid; ++iy) {
+        Curve3D row;
+        row.style.color = m_currentColor;
+        row.style.lineWidth = (float)m_lineWidthSpin->value();
+        if (iy == 0) row.label = "z=" + zStr;
+
+        for (int ix = 0; ix < grid; ++ix) {
+            const size_t id = idx(ix, iy);
+            const double x = xMin + ix * xStep;
+            const double y = yMin + iy * yStep;
+            row.points.push_back(Point3D{x, y, values[id], valid[id]});
+            if (valid[id]) addedAny = true;
+        }
+        m_plot3D->addCurve(row);
+    }
+
+    for (int ix = 0; ix < grid; ++ix) {
+        Curve3D col;
+        col.style.color = m_currentColor;
+        col.style.lineWidth = std::max(0.5f, (float)m_lineWidthSpin->value() * SURFACE_COLUMN_WIDTH_SCALE);
+
+        for (int iy = 0; iy < grid; ++iy) {
+            const size_t id = idx(ix, iy);
+            const double x = xMin + ix * xStep;
+            const double y = yMin + iy * yStep;
+            col.points.push_back(Point3D{x, y, values[id], valid[id]});
+        }
+        m_plot3D->addCurve(col);
+    }
+
+    if (!addedAny) {
+        logMessage("Error: no valid surface points in current range.", true);
+        return false;
+    }
+
+    if (invalidCount > 0)
+        logMessage(QString("Plotted 3D surface z=%1 (%2x%2 grid, %3 invalid points).").arg(zStr).arg(grid).arg(invalidCount));
+    else
+        logMessage(QString("Plotted 3D surface z=%1 (%2x%2 grid).").arg(zStr).arg(grid));
 
     return true;
 }
