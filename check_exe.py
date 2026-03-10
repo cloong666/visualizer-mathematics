@@ -5,6 +5,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+SFML_EXE_NAME = "MathVisualizer.exe"
+QT_EXE_NAME = "CurveVisualizer.exe"
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -23,7 +26,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    exe_name = "MathVisualizer.exe" if args.type == "sfml" else "CurveVisualizer.exe"
+    exe_name = SFML_EXE_NAME if args.type == "sfml" else QT_EXE_NAME
     exe_path = Path(args.build_dir) / exe_name
 
     if exe_path.exists():
