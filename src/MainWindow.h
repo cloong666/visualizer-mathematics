@@ -43,6 +43,7 @@ private:
 
     // ── Curve generation ──
     bool generateCurve2DExplicit();
+    bool generateCurve2DImplicit();
     bool generateCurve2DParametric();
     bool generateCurve3DParametric();
 
@@ -56,10 +57,12 @@ private:
 
     // Equation inputs (shown/hidden per mode)
     QWidget        *m_eq2DExplicitWidget{nullptr};
+    QWidget        *m_eq2DImplicitWidget{nullptr};
     QWidget        *m_eq2DParamWidget{nullptr};
     QWidget        *m_eq3DParamWidget{nullptr};
 
     QLineEdit      *m_yExpr{nullptr};        // 2D Explicit: y=f(x)
+    QLineEdit      *m_curveExpr2D{nullptr};  // 2D Implicit: F(x,y)=0
     QLineEdit      *m_xExpr2D{nullptr};      // 2D Param: x(t)
     QLineEdit      *m_yExpr2D{nullptr};      //           y(t)
     QLineEdit      *m_xExpr3D{nullptr};      // 3D Param: x(t)
