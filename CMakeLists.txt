@@ -85,7 +85,7 @@ endif()
 if(BUILD_SFML_VISUALIZER)
     # Try to find a system-installed SFML first; fall back to FetchContent so
     # the build is fully self-contained when SFML is not installed.
-    find_package(SFML 2.5 COMPONENTS graphics window system QUIET)
+    find_package(SFML 2.6 COMPONENTS graphics window system QUIET)
 
     if(NOT SFML_FOUND)
         message(STATUS "SFML not found locally – downloading via FetchContent (SFML 2.6.2)")

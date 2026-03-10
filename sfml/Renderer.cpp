@@ -17,11 +17,13 @@ static const sf::Color COLOR_HUD_FUNC    {255, 220,  80 };
 static const sf::Color COLOR_HUD_TEXT    {200, 215, 235 };
 
 // ── constants ─────────────────────────────────────────────────────────────────
-static constexpr unsigned int TICK_CHAR_SIZE = 12u;
-static constexpr unsigned int HUD_FUNC_SIZE  = 20u;
-static constexpr unsigned int HUD_HINT_SIZE  = 13u;
-static constexpr float        TICK_LENGTH    = 5.0f;
-static constexpr float        CURVE_LINE_THICKNESS = 1.8f;
+static constexpr unsigned int TICK_CHAR_SIZE          = 12u;
+static constexpr unsigned int HUD_FUNC_SIZE           = 20u;
+static constexpr unsigned int HUD_HINT_SIZE           = 13u;
+static constexpr float        TICK_LENGTH             = 5.0f;
+static constexpr float        CURVE_LINE_THICKNESS    = 1.8f;
+// Maximum off-screen y multiplier: filters extreme asymptote spikes
+static constexpr float        ASYMPTOTE_SCREEN_LIMIT  = 20.0f;
 
 // ── numeric formatting helper ─────────────────────────────────────────────────
 static std::string fmtNum(double v) {
@@ -178,7 +180,7 @@ void Renderer::drawCurve(sf::RenderTarget& target, const ViewTransform& view,
     verts.reserve(CURVE_SAMPLES * 2);
 
     // Maximum allowed screen-space y extent to filter extreme asymptotes
-    const float maxScreenY = H * 20.0f;
+    const float maxScreenY = H * ASYMPTOTE_SCREEN_LIMIT;
 
     bool   prevValid = false;
     float  prevSx = 0.0f, prevSy = 0.0f;
