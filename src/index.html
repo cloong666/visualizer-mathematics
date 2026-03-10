@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mathematics Curve Visualizer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <div class="header-left">
+        <span class="logo">📈</span>
+        <h1>Mathematics Curve Visualizer</h1>
+      </div>
+      <div class="header-right">
+        <div class="mode-toggle">
+          <button id="btn2d" class="mode-btn active" onclick="switchMode('2d')">2D</button>
+          <button id="btn3d" class="mode-btn" onclick="switchMode('3d')">3D</button>
+        </div>
+        <button class="icon-btn" id="btnClearAll" title="Clear all curves">🗑</button>
+      </div>
+    </header>
+
+    <!-- Main layout -->
+    <div id="main">
+      <!-- Left panel -->
+      <aside id="sidebar">
+        <!-- Equation input -->
+        <section class="panel">
+          <div class="panel-title">Equation Input</div>
+          <div class="input-group">
+            <textarea id="equationInput" class="eq-input" rows="2" placeholder="e.g. y=sin(x)"></textarea>
+            <div class="input-row">
+              <input type="color" id="curveColor" value="#7aa2f7" title="Curve color" />
+              <input type="number" id="curveWidth" min="1" max="8" value="2" title="Line width" class="width-input" />
+              <button id="btnAddCurve" class="btn-primary" onclick="addCurveFromInput()">Add</button>
+            </div>
+          </div>
+          <div id="errorBox" class="error-box hidden"></div>
+        </section>
+
+        <!-- Curve list -->
+        <section class="panel">
+          <div class="panel-title">Curves <span id="curveCount" class="badge">0</span></div>
+          <div id="curveList" class="curve-list"></div>
+        </section>
+
+        <!-- Range controls -->
+        <section class="panel">
+          <div class="panel-title">Range &amp; Sampling</div>
+          <div class="range-grid">
+            <label>X min</label>
+            <input type="number" id="xMin" value="-10" step="1" class="range-input" />
+            <label>X max</label>
+            <input type="number" id="xMax" value="10" step="1" class="range-input" />
+            <label>T min</label>
+            <input type="number" id="tMin" value="-6.2832" step="0.1" class="range-input" />
+            <label>T max</label>
+            <input type="number" id="tMax" value="6.2832" step="0.1" class="range-input" />
+            <label>Samples</label>
+            <input type="number" id="samples" value="1000" min="50" max="5000" step="50" class="range-input" />
+            <label>Surf grid</label>
+            <input type="number" id="surfGrid" value="60" min="10" max="150" step="5" class="range-input" />
+          </div>
+          <button class="btn-secondary full-width" onclick="replotAll()">Re-plot</button>
+        </section>
+
+        <!-- Examples -->
+        <section class="panel">
+          <div class="panel-title">Examples</div>
+          <div id="exampleList" class="example-list"></div>
+        </section>
+
+        <!-- Format help -->
+        <section class="panel">
+          <div class="panel-title">Input Formats</div>
+          <div class="help-text">
+            <div class="help-item"><b>2D Explicit:</b><br><code>y=sin(x)</code>, <code>f(x)=x^2+1</code></div>
+            <div class="help-item"><b>2D Parametric:</b><br><code>x=cos(t), y=sin(t)</code></div>
+            <div class="help-item"><b>3D Parametric:</b><br><code>x=cos(t), y=sin(t), z=t/5</code></div>
+            <div class="help-item"><b>3D Surface:</b><br><code>z=sin(sqrt(x^2+y^2))</code></div>
+            <div class="help-item"><b>Functions:</b> sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, exp, log, log2, log10, sqrt, abs, ceil, floor, round, sign, factorial</div>
+            <div class="help-item"><b>Constants:</b> pi, e, tau, phi</div>
+            <div class="help-item"><b>Power:</b> x^2 or x**2</div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Plot area -->
+      <main id="plotArea">
+        <div id="plot"></div>
+        <div id="plotEmpty" class="plot-empty">
+          <div class="empty-icon">📉</div>
+          <p>Add an equation to visualize</p>
+          <p class="empty-hint">Try: <code>y=sin(x)</code> or click an example</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- CDN libraries -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.3/math.min.js"></script>
+
+  <!-- App scripts -->
+  <script src="parser.js"></script>
+  <script src="plotter.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

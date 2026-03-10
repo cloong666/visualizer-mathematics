@@ -1,0 +1,48 @@
+{
+  "name": "visualizer-mathematics",
+  "version": "1.0.0",
+  "description": "2D/3D Cartesian Coordinate Curve Visualizer with desktop support",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.visualizer.mathematics",
+    "productName": "Mathematics Curve Visualizer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "src/**/*"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": null,
+      "uninstallerIcon": null
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Education"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.education"
+    }
+  }
+}
