@@ -1,0 +1,73 @@
+name: SFML Math Visualizer – Windows Build
+
+on:
+  push:
+    branches: [ "main", "feat/**", "copilot/**" ]
+  pull_request:
+    branches: [ "main" ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-sfml-windows:
+    name: Build SFML Visualizer (Windows / MSVC x64)
+    runs-on: windows-latest
+    permissions:
+      contents: write   # required for uploading release assets
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up MSVC environment ────────────────────────────
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # ── 3. Configure (CMake downloads SFML via FetchContent) ──
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . `
+            -G "NMake Makefiles" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_QT_VISUALIZER=OFF `
+            -DBUILD_SFML_VISUALIZER=ON
+
+      # ── 4. Build ──────────────────────────────────────────────
+      - name: Build MathVisualizer
+        run: cmake --build build --config Release --target MathVisualizer
+
+      # ── 5. Package deployment folder ─────────────────────────
+      - name: Package artifact
+        run: |
+          New-Item -ItemType Directory -Force -Path deploy
+          # Copy the exe
+          Copy-Item build\MathVisualizer.exe deploy\
+          # Copy SFML DLLs (Release builds link statically with /MT but
+          # shared builds produce DLLs – copy whatever is present)
+          $dlls = Get-ChildItem build -Filter "*.dll" -ErrorAction SilentlyContinue
+          foreach ($dll in $dlls) {
+            Copy-Item $dll.FullName deploy\
+          }
+          # Compress
+          Compress-Archive -Path deploy\* `
+            -DestinationPath MathVisualizer-Windows-x64.zip
+
+      # ── 6. Upload build artifact ──────────────────────────────
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MathVisualizer-Windows-x64
+          path: MathVisualizer-Windows-x64.zip
+          retention-days: 30
+
+      # ── 7. Attach to GitHub Release (on release publish) ──────
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: MathVisualizer-Windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
