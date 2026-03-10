@@ -1,0 +1,78 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [ "main", "feat/**", "copilot/**" ]
+  pull_request:
+    branches: [ "main" ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-windows:
+    name: Build (Windows / Qt6 / MSVC)
+    runs-on: windows-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Install Qt 6 ──────────────────────────────────
+      - name: Install Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          host: "windows"
+          target: "desktop"
+          arch: "win64_msvc2019_64"
+          cache: true
+
+      # ── 3. Set up MSVC environment ────────────────────────
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # ── 4. Configure with CMake ───────────────────────────
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . `
+            -G "NMake Makefiles" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+
+      # ── 5. Build ──────────────────────────────────────────
+      - name: Build
+        run: cmake --build build --config Release
+
+      # ── 6. Deploy Qt dependencies ─────────────────────────
+      - name: Deploy Qt DLLs
+        run: |
+          New-Item -ItemType Directory -Force -Path deploy
+          Copy-Item build\CurveVisualizer.exe deploy\
+          windeployqt --release --no-translations `
+            --no-compiler-runtime deploy\CurveVisualizer.exe
+
+      # ── 7. Package as ZIP ─────────────────────────────────
+      - name: Package artifact
+        run: |
+          Compress-Archive -Path deploy\* `
+            -DestinationPath CurveVisualizer-Windows-x64.zip
+
+      # ── 8. Upload artifact ────────────────────────────────
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CurveVisualizer-Windows-x64
+          path: CurveVisualizer-Windows-x64.zip
+          retention-days: 30
+
+      # ── 9. Attach to GitHub Release (on release publish) ──
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: CurveVisualizer-Windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
