@@ -33,6 +33,31 @@ struct Example {
     double  tMin{-10}, tMax{10};
     int     samples{500};
     QColor  color;
+
+    Example(const QString &name,
+            int mode,
+            const QString &y = {},
+            const QString &x = {},
+            const QString &yp = {},
+            const QString &xp = {},
+            const QString &yp3 = {},
+            const QString &zp3 = {},
+            double tMin = -10,
+            double tMax = 10,
+            int samples = 500,
+            const QColor &color = Qt::blue)
+        : name(name),
+          mode(mode),
+          y(y),
+          x(x),
+          yp(yp),
+          xp(xp),
+          yp3(yp3),
+          zp3(zp3),
+          tMin(tMin),
+          tMax(tMax),
+          samples(samples),
+          color(color) {}
 };
 
 static const QList<Example> g_examples = {
