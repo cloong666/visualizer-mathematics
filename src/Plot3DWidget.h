@@ -3,6 +3,8 @@
 #include <QPoint>
 #include "CurveData.h"
 
+class QKeyEvent;
+
 class Plot3DWidget : public QWidget {
     Q_OBJECT
 public:
@@ -19,6 +21,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     // Project a 3-D world point to 2-D screen coordinates.

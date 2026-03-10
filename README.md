@@ -156,7 +156,7 @@ A GitHub Actions workflow (`.github/workflows/build-sfml-windows.yml`) runs on e
 | Widget | Interaction |
 |---|---|
 | **2D canvas** | Left-drag: pan · Scroll: zoom · Double-click: reset view |
-| **3D canvas** | Left-drag: rotate · Right-drag / Shift+drag: pan · Scroll: zoom · Double-click: reset |
+| **3D canvas** | Left-drag: rotate · Right-drag / Shift+drag: pan · Scroll: zoom · `W`/`A`/`S`/`D`: move camera · Double-click: reset |
 
 ### Building the Qt visualizer on Windows
 
