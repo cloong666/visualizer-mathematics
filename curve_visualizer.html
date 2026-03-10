@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -320,11 +320,11 @@ class Expr {
     if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === '_') {
       const name = this._id();
       // constants
-      if (name === 'pi' || name === '\u03c0') return Math.PI;
+      if (name === 'pi') return Math.PI;
       if (name === 'e')   return Math.E;
       if (name === 'inf') return Infinity;
-      // variable (accept both declared name and legacy x/t)
-      if (name === this._varName || name === 'x' || name === 't') return this._varVal;
+      // variable — match only the declared variable name for this expression
+      if (name === this._varName) return this._varVal;
       // function call
       this._sk();
       if (this._pos < this.src.length && this.src[this._pos] === '(') {
@@ -424,6 +424,15 @@ class Expr {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  Constants
+// ══════════════════════════════════════════════════════════════════════════════
+const MIN_SCALE        = 1e-4;  // minimum zoom scale (pixels per world unit)
+const MAX_SCALE        = 1e7;   // maximum zoom scale
+const GRID_TARGET_PX   = 80;    // desired pixel spacing between grid lines
+const DISCONTINUITY_K  = 4;     // jump > canvas_height * K → discontinuity break
+const ZOOM_FACTOR      = 0.88;  // per-tick zoom-out factor (zoom-in = 1/factor)
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  View transform — world (math) ↔ screen (canvas) coordinates
 // ══════════════════════════════════════════════════════════════════════════════
 class View {
@@ -436,7 +445,7 @@ class View {
 
   zoom(factor, sx, sy) {
     const [wx, wy] = this.sw(sx, sy);
-    this.sc = Math.max(1e-4, Math.min(1e7, this.sc * factor));
+    this.sc = Math.max(MIN_SCALE, Math.min(MAX_SCALE, this.sc * factor));
     const [nx, ny] = this.ws(wx, wy);
     this.ox += sx - nx;
     this.oy += sy - ny;
@@ -452,7 +461,7 @@ class View {
 
   // Choose a "nice" grid step so that roughly 6–12 grid lines are visible
   gridStep() {
-    const target = 80;   // desired pixels between lines
+    const target = GRID_TARGET_PX;   // desired pixels between lines
     const raw = target / this.sc;
     if (!isFinite(raw) || raw <= 0) return 1;
     const p = Math.floor(Math.log10(raw));
@@ -589,7 +598,7 @@ function drawCurve() {
   ctx.lineJoin    = 'round';
 
   // Discontinuity threshold: a jump larger than this many canvas pixels breaks the path
-  const jumpThr = H() * 4;
+  const jumpThr = H() * DISCONTINUITY_K;
 
   ctx.beginPath();
   let penDown = false;
@@ -757,7 +766,7 @@ canvas.addEventListener('wheel', e => {
   const r  = canvas.getBoundingClientRect();
   const sx = e.clientX - r.left;
   const sy = e.clientY - r.top;
-  view.zoom(e.deltaY > 0 ? 0.88 : 1 / 0.88, sx, sy);
+  view.zoom(e.deltaY > 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR, sx, sy);
   redraw();
 }, { passive: false });
 
