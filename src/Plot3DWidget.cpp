@@ -13,6 +13,14 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+namespace {
+constexpr double kBaseMoveDistance = 12.0;
+const QColor kMajorGridColor(186, 195, 210);
+const QColor kMinorGridColor(214, 221, 232);
+constexpr double kMajorGridWidth = 1.25;
+constexpr double kMinorGridWidth = 1.0;
+}
+
 // ─────────────────────────────────────────────────────────────
 //  Helpers: 3-D → 2-D perspective projection
 //
@@ -122,7 +130,8 @@ void Plot3DWidget::drawGrid(QPainter &p) {
     for (int i = -lines; i <= lines; ++i) {
         const double d = i * step;
         const bool majorLine = (i % 5 == 0);
-        QPen gridPen(majorLine ? QColor(186, 195, 210) : QColor(214, 221, 232), majorLine ? 1.25 : 1.0);
+        QPen gridPen(majorLine ? kMajorGridColor : kMinorGridColor,
+                     majorLine ? kMajorGridWidth : kMinorGridWidth);
         p.setPen(gridPen);
 
         p.drawLine(project(d, -limit, 0), project(d, limit, 0));
@@ -280,7 +289,7 @@ void Plot3DWidget::mouseDoubleClickEvent(QMouseEvent *) {
 }
 
 void Plot3DWidget::keyPressEvent(QKeyEvent *event) {
-    double moveStep = std::max(0.2, 12.0 / m_zoom);
+    double moveStep = std::max(0.2, kBaseMoveDistance / m_zoom);
     const double az = m_azimuth * M_PI / 180.0;
     const double cosAz = std::cos(az);
     const double sinAz = std::sin(az);
