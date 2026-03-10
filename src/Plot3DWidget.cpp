@@ -15,6 +15,7 @@
 
 namespace {
 constexpr double kBaseMoveDistance = 12.0;
+constexpr double kMinMoveStep = 0.2;
 const QColor kMajorGridColor(186, 195, 210);
 const QColor kMinorGridColor(214, 221, 232);
 constexpr double kMajorGridWidth = 1.25;
@@ -289,7 +290,7 @@ void Plot3DWidget::mouseDoubleClickEvent(QMouseEvent *) {
 }
 
 void Plot3DWidget::keyPressEvent(QKeyEvent *event) {
-    double moveStep = std::max(0.2, kBaseMoveDistance / m_zoom);
+    double moveStep = std::max(kMinMoveStep, kBaseMoveDistance / m_zoom);
     const double az = m_azimuth * M_PI / 180.0;
     const double cosAz = std::cos(az);
     const double sinAz = std::sin(az);
