@@ -734,6 +734,7 @@ bool MainWindow::generateCurve3DParametric() {
 }
 
 bool MainWindow::generateSurface3D() {
+    static constexpr float SURFACE_COLUMN_WIDTH_SCALE = 0.8f;
     QString zStr = m_surfaceExpr3D->text().trimmed();
     static const QRegularExpression RX_Z_OF_XY("^z\\s*(\\(\\s*[xX]\\s*,\\s*[yY]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
     zStr.remove(RX_Z_OF_XY);
@@ -751,6 +752,8 @@ bool MainWindow::generateSurface3D() {
 
     double xMin = m_tMinSpin->value();
     double xMax = m_tMaxSpin->value();
+    double yMin = xMin;
+    double yMax = xMax;
     if (xMin >= xMax) {
         logMessage("Error: Min must be less than Max.", true);
         return false;
@@ -758,7 +761,8 @@ bool MainWindow::generateSurface3D() {
 
     const int requestedSamples = m_samplesSpin->value();
     const int grid = std::max(8, std::min(requestedSamples, 220));
-    const double step = (xMax - xMin) / (grid - 1);
+    const double xStep = (xMax - xMin) / (grid - 1);
+    const double yStep = (yMax - yMin) / (grid - 1);
 
     std::vector<double> values((size_t)grid * (size_t)grid, 0.0);
     std::vector<bool> valid((size_t)grid * (size_t)grid, false);
@@ -766,9 +770,9 @@ bool MainWindow::generateSurface3D() {
 
     int invalidCount = 0;
     for (int iy = 0; iy < grid; ++iy) {
-        const double y = xMin + iy * step;
+        const double y = yMin + iy * yStep;
         for (int ix = 0; ix < grid; ++ix) {
-            const double x = xMin + ix * step;
+            const double x = xMin + ix * xStep;
             zParser.setVar("x", x);
             zParser.setVar("y", y);
             bool vz = true;
@@ -789,8 +793,8 @@ bool MainWindow::generateSurface3D() {
 
         for (int ix = 0; ix < grid; ++ix) {
             const size_t id = idx(ix, iy);
-            const double x = xMin + ix * step;
-            const double y = xMin + iy * step;
+            const double x = xMin + ix * xStep;
+            const double y = yMin + iy * yStep;
             row.points.push_back(Point3D{x, y, values[id], valid[id]});
             if (valid[id]) addedAny = true;
         }
@@ -800,12 +804,12 @@ bool MainWindow::generateSurface3D() {
     for (int ix = 0; ix < grid; ++ix) {
         Curve3D col;
         col.style.color = m_currentColor;
-        col.style.lineWidth = std::max(0.5f, (float)m_lineWidthSpin->value() * 0.8f);
+        col.style.lineWidth = std::max(0.5f, (float)m_lineWidthSpin->value() * SURFACE_COLUMN_WIDTH_SCALE);
 
         for (int iy = 0; iy < grid; ++iy) {
             const size_t id = idx(ix, iy);
-            const double x = xMin + ix * step;
-            const double y = xMin + iy * step;
+            const double x = xMin + ix * xStep;
+            const double y = yMin + iy * yStep;
             col.points.push_back(Point3D{x, y, values[id], valid[id]});
         }
         m_plot3D->addCurve(col);
