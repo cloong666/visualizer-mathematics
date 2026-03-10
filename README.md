@@ -99,6 +99,8 @@ npm run vendor:update
 
 ---
 
+## Equation Input Formats
+
 | Type | Format | Example |
 |---|---|---|
 | 2D Explicit | `y=<expr>` or `f(x)=<expr>` | `y=sin(x)` |
@@ -138,8 +140,8 @@ Both `x^2` and `x**2` are accepted.
 | Technology | Purpose |
 |---|---|
 | **HTML/CSS/JavaScript** | UI and application logic (no framework) |
-| **[Plotly.js](https://plotly.com/javascript/)** (CDN) | Interactive 2D/3D plotting |
-| **[math.js](https://mathjs.org/)** (CDN) | Safe math expression evaluation |
+| **[Plotly.js](https://plotly.com/javascript/)** (bundled locally) | Interactive 2D/3D plotting |
+| **[math.js](https://mathjs.org/)** (bundled locally) | Safe math expression evaluation |
 | **[Electron](https://www.electronjs.org/)** | Desktop packaging (Windows, Linux, macOS) |
 | **[electron-builder](https://www.electron.build/)** | Cross-platform installer generation |
 | **GitHub Actions** | CI/CD for automated EXE and AppImage builds |

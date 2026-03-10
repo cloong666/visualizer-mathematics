@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "2D/3D Cartesian Coordinate Curve Visualizer with desktop support",
   "main": "main.js",
+  "engines": {
+    "node": ">=16.7.0"
+  },
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",

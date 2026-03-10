@@ -19,15 +19,13 @@ const EquationParser = (() => {
    */
   function preprocess(expr) {
     if (!expr || typeof expr !== 'string') return '';
+    // Note: tau, phi, pi, e are provided as named constants in the evaluation
+    // scope (see Plotter.BASE_SCOPE), so no text substitution is needed here.
     return expr
       .trim()
-      // Common constant aliases
-      .replace(/\btau\b/gi, '(2*pi)')
-      .replace(/\bphi\b/gi, '((1+sqrt(5))/2)')
       // Implicit multiplication: 2x, 2(, )(, )x
       .replace(/(\d)\s*([a-df-wyzA-DF-WYZ(])/g, '$1*$2')
       .replace(/\)\s*([a-zA-Z(])/g, ')*$1')
-      // Remove spaces around operators for cleaner output
       .trim();
   }
 
