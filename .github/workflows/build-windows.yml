@@ -12,6 +12,8 @@ jobs:
   build-windows:
     name: Build (Windows / Qt6 / MSVC)
     runs-on: windows-latest
+    permissions:
+      contents: write   # needed for uploading release assets
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────
