@@ -231,7 +231,7 @@ const Plotter = (() => {
     }
 
     if (parsed.type === '3d_surface') {
-      const { x, y, z } = gen3DSurface(parsed.z, xMin, xMax, xMin, xMax, surfGrid);
+      const { x, y, z } = gen3DSurface(parsed.z, xMin, xMax, config.yMin, config.yMax, surfGrid);
       return [{
         type: 'surface',
         x, y, z,

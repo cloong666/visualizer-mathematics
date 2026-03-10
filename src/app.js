@@ -154,7 +154,12 @@ function renderCurveList() {
 }
 
 function escHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ════════════════════════════════════════════════
@@ -178,9 +183,14 @@ function clearError() {
 // ════════════════════════════════════════════════
 
 function getConfig() {
+  const xMin = parseFloat(document.getElementById('xMin').value) || -10;
+  const xMax = parseFloat(document.getElementById('xMax').value) || 10;
   return {
-    xMin: parseFloat(document.getElementById('xMin').value) || -10,
-    xMax: parseFloat(document.getElementById('xMax').value) || 10,
+    xMin,
+    xMax,
+    // Y surface range mirrors X range (no separate Y inputs in the UI)
+    yMin: xMin,
+    yMax: xMax,
     tMin: parseFloat(document.getElementById('tMin').value) || -Math.PI * 2,
     tMax: parseFloat(document.getElementById('tMax').value) || Math.PI * 2,
     samples: parseInt(document.getElementById('samples').value, 10) || 1000,
@@ -251,7 +261,7 @@ function renderExamples() {
   const filtered = EXAMPLES.filter(ex => ex.mode === state.mode || ex.mode === 'any');
 
   el.innerHTML = filtered.map(ex => `
-    <button class="example-btn" onclick="loadExample(${JSON.stringify(ex.eq).replace(/'/g, '&#39;')})">
+    <button class="example-btn" data-eq="${escHtml(ex.eq)}">
       <span class="example-name">${escHtml(ex.name)}</span>
       <span class="example-eq">${escHtml(ex.eq)}</span>
     </button>
@@ -285,6 +295,13 @@ document.addEventListener('keydown', e => {
 
 function init() {
   document.getElementById('btnClearAll').addEventListener('click', clearAll);
+
+  // Event delegation for example buttons (avoids inline onclick + XSS risk)
+  document.getElementById('exampleList').addEventListener('click', e => {
+    const btn = e.target.closest('.example-btn');
+    if (btn) loadExample(btn.dataset.eq);
+  });
+
   renderCurveList();
   renderExamples();
 
