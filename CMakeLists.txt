@@ -125,11 +125,7 @@ if(BUILD_SFML_VISUALIZER)
         src/ExprParser.h
     )
 
-    if(WIN32)
-        add_executable(MathVisualizer WIN32 ${SFML_SOURCES} ${SFML_HEADERS})
-    else()
-        add_executable(MathVisualizer ${SFML_SOURCES} ${SFML_HEADERS})
-    endif()
+    add_executable(MathVisualizer ${SFML_SOURCES} ${SFML_HEADERS})
 
     target_link_libraries(MathVisualizer PRIVATE ${SFML_LIBRARIES})
 
