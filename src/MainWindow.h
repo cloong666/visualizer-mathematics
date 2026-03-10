@@ -46,6 +46,7 @@ private:
     bool generateCurve2DImplicit();
     bool generateCurve2DParametric();
     bool generateCurve3DParametric();
+    bool generateSurface3D();
 
     void logMessage(const QString &msg, bool isError = false);
 
@@ -60,6 +61,7 @@ private:
     QWidget        *m_eq2DImplicitWidget{nullptr};
     QWidget        *m_eq2DParamWidget{nullptr};
     QWidget        *m_eq3DParamWidget{nullptr};
+    QWidget        *m_eq3DSurfaceWidget{nullptr};
 
     QLineEdit      *m_yExpr{nullptr};        // 2D Explicit: y=f(x)
     QLineEdit      *m_curveExpr2D{nullptr};  // 2D Implicit: F(x,y)=0
@@ -68,6 +70,7 @@ private:
     QLineEdit      *m_xExpr3D{nullptr};      // 3D Param: x(t)
     QLineEdit      *m_yExpr3D{nullptr};      //           y(t)
     QLineEdit      *m_zExpr3D{nullptr};      //           z(t)
+    QLineEdit      *m_surfaceExpr3D{nullptr}; // 3D Surface: z=f(x,y)
 
     // Range / samples
     QDoubleSpinBox *m_tMinSpin{nullptr};

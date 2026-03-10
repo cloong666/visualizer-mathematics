@@ -150,6 +150,7 @@ A GitHub Actions workflow (`.github/workflows/build-sfml-windows.yml`) runs on e
 | **2D General Curve** `F(x,y)=0` | `x^2 + y^2 = 4`, `(x^2+y^2)^2 = 2*(x^2-y^2)` |
 | **2D Parametric** `x(t), y(t)` | `cos(t)`, `sin(t)` |
 | **3D Parametric** `x(t), y(t), z(t)` | `cos(t)`, `sin(t)`, `t/5` |
+| **3D Surface** `z = f(x,y)` | `x^2 + y^2`, `x^2-y^2`, `sin(x)*cos(y)` |
 
 #### Interaction
 
