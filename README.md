@@ -1,6 +1,9 @@
 # Mathematics Curve Visualizer
 
-A **2D/3D Cartesian coordinate curve visualizer** built with HTML/CSS/JavaScript, Plotly.js, and math.js — packaged as a cross-platform desktop application with Electron.
+A **2D/3D Cartesian coordinate curve visualizer** with two independent implementations:
+
+1. **Web / Electron app** — HTML/CSS/JavaScript, Plotly.js, math.js (cross-platform, see below)
+2. **Native Windows EXE (SFML)** — C++17 + SFML, interactive real-time math visualizer (see [SFML Visualizer](#sfml-interactive-math-visualizer-windows-exe) section)
 
 ---
 
@@ -160,10 +163,82 @@ visualizer-mathematics/
 │   ├── parser.js             # Equation string parser
 │   ├── plotter.js            # Point generation and Plotly trace builder
 │   └── app.js                # Application controller and state management
+├── sfml-visualizer/          # Native Windows EXE (C++ + SFML)
+│   ├── CMakeLists.txt        # CMake build (FetchContent SFML)
+│   ├── assets/               # Runtime assets (font, auto-populated by CMake)
+│   └── src/
+│       ├── main.cpp          # Entry point
+│       ├── App.hpp/.cpp      # Application loop & state
+│       ├── Renderer.hpp/.cpp # SFML drawing (grid, axes, curves, HUD)
+│       ├── InputHandler.hpp/.cpp  # Mouse/keyboard events
+│       ├── MathFunctions.hpp/.cpp # Curve catalogue
+│       └── Constants.hpp     # All configuration constants
 └── .github/
     └── workflows/
-        └── build.yml         # CI/CD workflow for Windows EXE and Linux AppImage
+        ├── build.yml         # CI/CD for Electron EXE / AppImage
+        └── build-sfml.yml    # CI/CD for SFML Windows EXE
 ```
+
+---
+
+## SFML Interactive Math Visualizer (Windows EXE)
+
+A standalone **C++ + SFML** application that opens a windowed, interactive math curve plotter when double-clicked — no install required.
+
+### Features
+
+- 10 built-in curves: `sin(x)`, `cos(x)`, `tan(x)`, `x²`, `x³−3x`, `sinc(x)`, damped sine, `|sin(x)|`, `ln(x)`, `√|x|`
+- Real-time coordinate grid with adaptive spacing
+- X / Y axes with tick labels
+- **Mouse drag** — pan the view
+- **Mouse scroll** — zoom in / out around the cursor
+- **← / →** (or A / D) — cycle to previous / next curve
+- **↑ / ↓** — adjust amplitude (±0.1 per step)
+- **+ / −** — adjust frequency (±0.1 per step)
+- **Space** — toggle between single-curve and all-curves overlay
+- **R** — reset view to default zoom / position
+- **Esc** — quit
+- HUD with current formula, amplitude, frequency, zoom level, and control hints
+
+### Prerequisites
+
+| Tool | Minimum version | Notes |
+|---|---|---|
+| **CMake** | 3.16 | [cmake.org/download](https://cmake.org/download/) |
+| **C++ compiler** | MSVC 2019 / MinGW-w64 / Clang | C++17 required |
+| **Git** | any | CMake uses FetchContent (git clone) to download SFML |
+| **Internet** | — | Required during first CMake configure to fetch SFML |
+
+### Build (Windows)
+
+```powershell
+# From the repository root:
+cmake -B build -S sfml-visualizer -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+The output `EXE` is placed at:
+
+```
+build/Release/MathVisualizer.exe
+build/Release/assets/          ← font files copied here automatically
+```
+
+> **First build note:** CMake will download SFML 2.6.1 (~40 MB) via git. Subsequent builds are fast.
+
+### Run
+
+Double-click `build/Release/MathVisualizer.exe` — no DLLs or installers needed (SFML is statically linked).
+
+### CI / Pre-built Download
+
+Every push to the feature branch builds the EXE automatically via GitHub Actions ([`.github/workflows/build-sfml.yml`](.github/workflows/build-sfml.yml)). Download the `MathVisualizer-Windows-x64` artifact from the Actions run.
+
+### Known Limitations
+
+- Windows only for now (Linux/macOS builds require OpenGL and suitable system libs — not configured in CI)
+- Text rendering is disabled gracefully if no font is found (falls back to Windows system fonts automatically)
+- `tan(x)` discontinuities are approximated by clamping large values rather than exact asymptote detection
 
 ---
 

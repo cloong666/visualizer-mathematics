@@ -1,0 +1,52 @@
+name: Build SFML Math Visualizer (Windows EXE)
+
+on:
+  push:
+    branches:
+      - 'copilot/add-2d-3d-curve-visualizer'
+      - 'copilot/copilotadd-interactive-ui'
+    paths:
+      - 'sfml-visualizer/**'
+      - '.github/workflows/build-sfml.yml'
+  pull_request:
+    paths:
+      - 'sfml-visualizer/**'
+      - '.github/workflows/build-sfml.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-sfml-windows:
+    name: Build Windows EXE (SFML)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake (Release)
+        run: |
+          cmake -B build -S sfml-visualizer `
+            -DCMAKE_BUILD_TYPE=Release
+        shell: pwsh
+
+      - name: Build
+        run: cmake --build build --config Release
+        shell: pwsh
+
+      - name: List output files
+        run: |
+          Get-ChildItem -Recurse build/Release | Select-Object FullName
+        shell: pwsh
+
+      - name: Upload Windows EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MathVisualizer-Windows-x64
+          path: |
+            build/Release/MathVisualizer.exe
+            build/Release/assets/
+          if-no-files-found: error
+          retention-days: 30
