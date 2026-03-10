@@ -9,6 +9,21 @@ This repository provides **two** standalone Windows desktop applications that vi
 
 ---
 
+## Exe availability check
+
+This repository stores source code and does **not** include prebuilt `.exe` files by default.  
+You can quickly check whether a local build already produced an exe:
+
+```bash
+python check_exe.py
+python check_exe.py --type qt
+```
+
+Expected locations:
+
+- `build/MathVisualizer.exe` (SFML)
+- `build/CurveVisualizer.exe` (Qt)
+
 ## SFML Math Visualizer (Recommended – double-click to run)
 
 A fully self-contained interactive 2D function plotter built with **SFML 2.6**.  
