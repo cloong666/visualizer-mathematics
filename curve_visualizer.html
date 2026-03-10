@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>曲线可视化演示器 / Curve Visualizer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: #0e1018; color: #c8d0e8; }
+
+#app  { display: flex; flex-direction: column; height: 100vh; }
+#hdr  { background: #181b28; border-bottom: 1px solid #272d44; padding: 8px 14px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+#hdr h1 { font-size: 14px; font-weight: 600; color: #dce4f4; }
+#body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── control panel ── */
+#panel { width: 295px; min-width: 295px; background: #181b28; border-right: 1px solid #272d44;
+         padding: 12px 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+.sec { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #5868a0; margin-bottom: 4px; }
+label { display: block; font-size: 11px; color: #7888b8; margin-bottom: 2px; }
+
+input[type=text], input[type=number], select {
+  width: 100%; background: #0c0e18; border: 1px solid #262d44; color: #c8d0e8;
+  border-radius: 3px; padding: 5px 7px; font-size: 12px; outline: none; }
+input[type=text]:focus, input[type=number]:focus, select:focus { border-color: #3a60a8; }
+input[type=color] { width: 100%; height: 28px; background: none; border: 1px solid #262d44;
+                    border-radius: 3px; cursor: pointer; padding: 1px; }
+
+.row { display: flex; gap: 6px; }
+.row > div { flex: 1; }
+
+/* mode tabs */
+.tabs { display: flex; background: #0c0e18; border: 1px solid #262d44; border-radius: 3px; overflow: hidden; }
+.tab  { flex: 1; padding: 5px 2px; text-align: center; cursor: pointer; font-size: 11px;
+        color: #5868a0; transition: .12s; user-select: none; }
+.tab.on   { background: #284888; color: #e0e8ff; }
+.tab:hover:not(.on) { background: #1a1e30; }
+
+/* equation rows */
+.eq-grp { display: flex; flex-direction: column; gap: 5px; }
+.eq-row { display: flex; align-items: center; gap: 5px; }
+.eq-pfx { font-size: 12px; color: #5868a0; white-space: nowrap; min-width: 54px;
+           text-align: right; font-family: Consolas, monospace; }
+.eq-row input { flex: 1; }
+
+/* plot button */
+#plotBtn { background: #284888; color: #e0e8ff; border: none; border-radius: 3px;
+           padding: 9px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+#plotBtn:hover  { background: #3358a0; }
+#plotBtn:active { background: #1e3870; }
+
+/* status bar */
+#status { font-size: 11px; padding: 5px 7px; border-radius: 3px; background: #0a0c14;
+          border: 1px solid #262d44; color: #5868a0; min-height: 28px; word-break: break-all;
+          line-height: 1.4; }
+#status.err { color: #f07070; border-color: #702020; background: #160404; }
+#status.ok  { color: #50c080; border-color: #185838; background: #061210; }
+
+hr { border: none; border-top: 1px solid #272d44; }
+.tips { font-size: 11px; color: #3d4d70; line-height: 1.75; }
+
+/* canvas area */
+#cv-area { flex: 1; position: relative; overflow: hidden; background: #0a0c14; }
+canvas   { display: block; cursor: crosshair; }
+#coords  { position: absolute; bottom: 7px; right: 10px; font-size: 11px; color: #384860;
+           pointer-events: none; font-family: Consolas, monospace; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- header -->
+  <div id="hdr">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M1 13 Q4 3 9 9 Q14 15 17 5" stroke="#3d60b0" stroke-width="2"
+            stroke-linecap="round" fill="none"/>
+    </svg>
+    <h1>曲线可视化演示器 &nbsp;/&nbsp; Curve Visualizer</h1>
+  </div>
+
+  <div id="body">
+
+    <!-- left panel -->
+    <div id="panel">
+
+      <!-- mode -->
+      <div>
+        <div class="sec">曲线模式 Mode</div>
+        <div class="tabs">
+          <div class="tab on" data-m="explicit" onclick="setMode('explicit')">y = f(x)</div>
+          <div class="tab"    data-m="param"    onclick="setMode('param')">参数式 Parametric</div>
+        </div>
+      </div>
+
+      <!-- equation inputs -->
+      <div>
+        <div class="sec">方程 Equation</div>
+        <div id="ei" class="eq-grp">
+          <div class="eq-row">
+            <span class="eq-pfx">y =</span>
+            <input type="text" id="yE" value="sin(x)" placeholder="e.g. sin(x), x^2"
+                   onkeydown="if(event.key==='Enter')plotCurve()">
+          </div>
+        </div>
+        <div id="pi_" class="eq-grp hidden">
+          <div class="eq-row">
+            <span class="eq-pfx">x(t) =</span>
+            <input type="text" id="xP" value="cos(t)" placeholder="e.g. cos(t)"
+                   onkeydown="if(event.key==='Enter')plotCurve()">
+          </div>
+          <div class="eq-row">
+            <span class="eq-pfx">y(t) =</span>
+            <input type="text" id="yP" value="sin(t)" placeholder="e.g. sin(t)"
+                   onkeydown="if(event.key==='Enter')plotCurve()">
+          </div>
+        </div>
+      </div>
+
+      <!-- examples -->
+      <div>
+        <div class="sec">预设示例 Examples</div>
+        <select id="exSel" onchange="loadEx()">
+          <option value="">— 选择示例 Select example —</option>
+          <optgroup label="2D Explicit  y = f(x)">
+            <option value='{"m":"explicit","y":"sin(x)","a":-6.28,"b":6.28}'>Sine  y = sin(x)</option>
+            <option value='{"m":"explicit","y":"cos(x)","a":-6.28,"b":6.28}'>Cosine  y = cos(x)</option>
+            <option value='{"m":"explicit","y":"tan(x)","a":-1.5,"b":1.5,"n":600}'>Tangent  y = tan(x)</option>
+            <option value='{"m":"explicit","y":"x^2","a":-5,"b":5}'>Parabola  y = x²</option>
+            <option value='{"m":"explicit","y":"x^3-3*x","a":-3,"b":3}'>Cubic  y = x³ − 3x</option>
+            <option value='{"m":"explicit","y":"exp(-x^2)","a":-4,"b":4}'>Gaussian  y = exp(−x²)</option>
+            <option value='{"m":"explicit","y":"sin(x)/x","a":-20,"b":20,"n":800}'>Sinc  y = sin(x)/x</option>
+            <option value='{"m":"explicit","y":"abs(cos(x))","a":-6.28,"b":6.28}'>|cos(x)|</option>
+            <option value='{"m":"explicit","y":"sqrt(abs(x))","a":-5,"b":5}'>√|x|</option>
+            <option value='{"m":"explicit","y":"1/(1+x^2)","a":-6,"b":6}'>Lorentzian  1/(1+x²)</option>
+            <option value='{"m":"explicit","y":"x*sin(x)","a":-10,"b":10}'>x · sin(x)</option>
+            <option value='{"m":"explicit","y":"sin(3*x)*cos(2*x)","a":-6.28,"b":6.28,"n":600}'>sin(3x) · cos(2x)</option>
+            <option value='{"m":"explicit","y":"floor(x)","a":-5,"b":5}'>floor(x) — staircase</option>
+          </optgroup>
+          <optgroup label="2D Parametric  x(t), y(t)">
+            <option value='{"m":"param","x":"cos(t)","y":"sin(t)","a":0,"b":6.2832,"n":360}'>Circle</option>
+            <option value='{"m":"param","x":"2*cos(t)","y":"sin(t)","a":0,"b":6.2832,"n":360}'>Ellipse</option>
+            <option value='{"m":"param","x":"sin(3*t)","y":"sin(2*t)","a":0,"b":6.2832,"n":600}'>Lissajous figure</option>
+            <option value='{"m":"param","x":"t*cos(t)","y":"t*sin(t)","a":0,"b":25.13,"n":800}'>Archimedean spiral</option>
+            <option value='{"m":"param","x":"cos(4*t)*cos(t)","y":"cos(4*t)*sin(t)","a":0,"b":6.2832,"n":800}'>Rose curve (4 petals)</option>
+            <option value='{"m":"param","x":"(2+cos(3*t))*cos(2*t)","y":"(2+cos(3*t))*sin(2*t)","a":0,"b":6.2832,"n":800}'>Epicycloid</option>
+            <option value='{"m":"param","x":"sin(t)+2*sin(2*t)","y":"cos(t)-2*cos(2*t)","a":0,"b":6.2832,"n":600}'>Trefoil knot (2D)</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <hr>
+
+      <!-- range -->
+      <div>
+        <div class="sec">范围 Range</div>
+        <div id="re">
+          <div class="row">
+            <div><label>x min</label><input type="number" id="xA" value="-10" step="1"></div>
+            <div><label>x max</label><input type="number" id="xB" value="10"  step="1"></div>
+          </div>
+        </div>
+        <div id="rp" class="hidden">
+          <div class="row">
+            <div><label>t min</label><input type="number" id="tA" value="0"      step=".1"></div>
+            <div><label>t max</label><input type="number" id="tB" value="6.2832" step=".1"></div>
+          </div>
+        </div>
+        <div style="margin-top:5px">
+          <label>采样数 Samples</label>
+          <input type="number" id="ns" value="500" min="50" max="5000" step="50">
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- style -->
+      <div>
+        <div class="sec">样式 Style</div>
+        <div class="row">
+          <div><label>颜色 Color</label><input type="color" id="cc" value="#4488ff"></div>
+          <div><label>线宽 Width</label><input type="number" id="lw" value="2" min=".5" max="10" step=".5"></div>
+        </div>
+      </div>
+
+      <hr>
+
+      <button id="plotBtn" onclick="plotCurve()">绘制曲线 / Plot Curve</button>
+
+      <div id="status">就绪 — 选择示例或输入方程后点击绘制</div>
+
+      <hr>
+
+      <div class="tips">
+        <b>操作 Controls:</b><br>
+        🖱 拖拽 Drag: 平移 Pan<br>
+        🖱 滚轮 Scroll: 缩放 Zoom<br>
+        ⌨ R: 重置视图 Reset view<br>
+        ⌨ Enter (in input): 绘制 Plot<br>
+        <br>
+        <b>支持函数 Functions:</b><br>
+        sin cos tan asin acos atan<br>
+        sinh cosh tanh exp log ln<br>
+        log10 log2 sqrt cbrt abs<br>
+        ceil floor round sign pow<br>
+        min max mod<br>
+        <br>
+        <b>常量 Constants:</b> pi &nbsp; e
+      </div>
+
+    </div><!-- #panel -->
+
+    <!-- canvas area -->
+    <div id="cv-area">
+      <canvas id="cv"></canvas>
+      <div id="coords"></div>
+    </div>
+
+  </div><!-- #body -->
+</div><!-- #app -->
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  Expression parser — recursive-descent
+//  Grammar (standard math precedence, unary minus lower than power):
+//    A (additive) → T (('+' | '-') T)*
+//    T (term)     → U (('*' | '/') U)*
+//    U (unary)    → '-' U | '+' U | P
+//    P (power)    → Q ('^' U)*   right-associative; exponent uses unary
+//    Q (primary)  → number | variable | constant | fn '(' args ')' | '(' A ')'
+// ══════════════════════════════════════════════════════════════════════════════
+class Expr {
+  constructor(src) { this.src = src.trim(); }
+
+  // Evaluate expression with variable varName = val.  Returns NaN on error.
+  eval(varName, val) {
+    this._varName = varName;
+    this._varVal  = val;
+    this._pos     = 0;
+    try {
+      const v = this._A();
+      return v;
+    } catch (_) {
+      return NaN;
+    }
+  }
+
+  /* ── helpers ── */
+  _sk() {
+    while (this._pos < this.src.length && this.src[this._pos] === ' ') this._pos++;
+  }
+  _pk() { this._sk(); return this._pos < this.src.length ? this.src[this._pos] : '\0'; }
+
+  /* ── additive ── */
+  _A() {
+    let v = this._T();
+    for (;;) {
+      const c = this._pk();
+      if      (c === '+') { this._pos++; v += this._T(); }
+      else if (c === '-') { this._pos++; v -= this._T(); }
+      else break;
+    }
+    return v;
+  }
+
+  /* ── term ── */
+  _T() {
+    let v = this._U();
+    for (;;) {
+      const c = this._pk();
+      if (c === '*') { this._pos++; v *= this._U(); }
+      else if (c === '/') {
+        this._pos++;
+        const d = this._U();
+        v = (d === 0) ? NaN : v / d;
+      }
+      else break;
+    }
+    return v;
+  }
+
+  /* ── unary ── */
+  _U() {
+    const c = this._pk();
+    if (c === '-') { this._pos++; return -this._U(); }
+    if (c === '+') { this._pos++; return  this._U(); }
+    return this._P();
+  }
+
+  /* ── power (right-associative) ── */
+  _P() {
+    const base = this._Q();
+    if (this._pk() === '^') {
+      this._pos++;
+      return Math.pow(base, this._U());   // exponent via unary (allows e.g. x^-2)
+    }
+    return base;
+  }
+
+  /* ── primary ── */
+  _Q() {
+    this._sk();
+    const c = this._pk();
+
+    // parenthesised sub-expression
+    if (c === '(') {
+      this._pos++;
+      const v = this._A();
+      this._sk();
+      if (this._pos < this.src.length && this.src[this._pos] === ')') this._pos++;
+      return v;
+    }
+
+    // number literal
+    if ((c >= '0' && c <= '9') || c === '.') return this._num();
+
+    // identifier: variable, constant, or function name
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === '_') {
+      const name = this._id();
+      // constants
+      if (name === 'pi' || name === '\u03c0') return Math.PI;
+      if (name === 'e')   return Math.E;
+      if (name === 'inf') return Infinity;
+      // variable (accept both declared name and legacy x/t)
+      if (name === this._varName || name === 'x' || name === 't') return this._varVal;
+      // function call
+      this._sk();
+      if (this._pos < this.src.length && this.src[this._pos] === '(') {
+        this._pos++;
+        const args = this._argList();
+        this._sk();
+        if (this._pos < this.src.length && this.src[this._pos] === ')') this._pos++;
+        return this._callFn(name, args);
+      }
+      return NaN;
+    }
+
+    return NaN;
+  }
+
+  /* ── parse number literal (handles scientific notation) ── */
+  _num() {
+    const s = this._pos;
+    while (this._pos < this.src.length &&
+           this.src[this._pos] >= '0' && this.src[this._pos] <= '9') this._pos++;
+    if (this._pos < this.src.length && this.src[this._pos] === '.') {
+      this._pos++;
+      while (this._pos < this.src.length &&
+             this.src[this._pos] >= '0' && this.src[this._pos] <= '9') this._pos++;
+    }
+    // scientific notation: 1e5, 1.5e-3, etc.
+    if (this._pos < this.src.length &&
+        (this.src[this._pos] === 'e' || this.src[this._pos] === 'E')) {
+      const sign = this.src[this._pos + 1] || '';
+      const first = (sign === '+' || sign === '-') ? (this.src[this._pos + 2] || '') : sign;
+      if (first >= '0' && first <= '9') {
+        this._pos++;                                        // consume 'e'/'E'
+        if (this.src[this._pos] === '+' || this.src[this._pos] === '-') this._pos++;
+        while (this._pos < this.src.length &&
+               this.src[this._pos] >= '0' && this.src[this._pos] <= '9') this._pos++;
+      }
+    }
+    return parseFloat(this.src.substring(s, this._pos));
+  }
+
+  /* ── parse identifier ── */
+  _id() {
+    const s = this._pos;
+    while (this._pos < this.src.length && (
+        (this.src[this._pos] >= 'a' && this.src[this._pos] <= 'z') ||
+        (this.src[this._pos] >= 'A' && this.src[this._pos] <= 'Z') ||
+        (this.src[this._pos] >= '0' && this.src[this._pos] <= '9') ||
+         this.src[this._pos] === '_')) this._pos++;
+    return this.src.substring(s, this._pos).toLowerCase();
+  }
+
+  /* ── parse comma-separated argument list (no surrounding parens) ── */
+  _argList() {
+    const args = [];
+    this._sk();
+    if (this._pos < this.src.length && this.src[this._pos] === ')') return args;
+    args.push(this._A());
+    while (this._pos < this.src.length && this.src[this._pos] === ',') {
+      this._pos++;
+      args.push(this._A());
+    }
+    return args;
+  }
+
+  /* ── dispatch built-in functions ── */
+  _callFn(name, args) {
+    const a = args[0], b = args[1];
+    switch (name) {
+      case 'sin':   return Math.sin(a);
+      case 'cos':   return Math.cos(a);
+      case 'tan':   return Math.tan(a);
+      case 'asin':  return Math.asin(a);
+      case 'acos':  return Math.acos(a);
+      case 'atan':  return args.length >= 2 ? Math.atan2(a, b) : Math.atan(a);
+      case 'atan2': return Math.atan2(a, b);
+      case 'sinh':  return Math.sinh(a);
+      case 'cosh':  return Math.cosh(a);
+      case 'tanh':  return Math.tanh(a);
+      case 'exp':   return Math.exp(a);
+      case 'log': case 'ln': return Math.log(a);
+      case 'log10': return Math.log10(a);
+      case 'log2':  return Math.log2(a);
+      case 'sqrt':  return Math.sqrt(a);
+      case 'cbrt':  return Math.cbrt(a);
+      case 'abs':   return Math.abs(a);
+      case 'ceil':  return Math.ceil(a);
+      case 'floor': return Math.floor(a);
+      case 'round': return Math.round(a);
+      case 'sign':  return Math.sign(a);
+      case 'min':   return Math.min(a, b);
+      case 'max':   return Math.max(a, b);
+      case 'pow':   return Math.pow(a, b);
+      case 'mod':   return a % b;
+      default:      return NaN;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  View transform — world (math) ↔ screen (canvas) coordinates
+// ══════════════════════════════════════════════════════════════════════════════
+class View {
+  constructor() { this.ox = 0; this.oy = 0; this.sc = 50; }
+
+  // world → screen
+  ws(wx, wy) { return [this.ox + wx * this.sc,  this.oy - wy * this.sc]; }
+  // screen → world
+  sw(sx, sy) { return [(sx - this.ox) / this.sc, (this.oy - sy) / this.sc]; }
+
+  zoom(factor, sx, sy) {
+    const [wx, wy] = this.sw(sx, sy);
+    this.sc = Math.max(1e-4, Math.min(1e7, this.sc * factor));
+    const [nx, ny] = this.ws(wx, wy);
+    this.ox += sx - nx;
+    this.oy += sy - ny;
+  }
+
+  pan(dx, dy) { this.ox += dx; this.oy += dy; }
+
+  reset(W, H) {
+    this.sc = Math.min(W, H) / 20;
+    this.ox = W / 2;
+    this.oy = H / 2;
+  }
+
+  // Choose a "nice" grid step so that roughly 6–12 grid lines are visible
+  gridStep() {
+    const target = 80;   // desired pixels between lines
+    const raw = target / this.sc;
+    if (!isFinite(raw) || raw <= 0) return 1;
+    const p = Math.floor(Math.log10(raw));
+    const f = raw / Math.pow(10, p);
+    const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+    return nice * Math.pow(10, p);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('cv');
+const ctx    = canvas.getContext('2d');
+const coordsEl = document.getElementById('coords');
+const view   = new View();
+
+let mode        = 'explicit';   // 'explicit' | 'param'
+let pts         = null;         // computed curve points [{x,y,ok}]
+let curColor    = '#4488ff';
+let curWidth    = 2;
+let dragging    = false;
+let dragX       = 0, dragY = 0;
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Canvas sizing
+// ══════════════════════════════════════════════════════════════════════════════
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+
+function resizeCanvas() {
+  const area = document.getElementById('cv-area');
+  canvas.width  = area.clientWidth;
+  canvas.height = area.clientHeight;
+  view.reset(W(), H());
+  redraw();
+}
+
+const ro = new ResizeObserver(resizeCanvas);
+ro.observe(document.getElementById('cv-area'));
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Drawing
+// ══════════════════════════════════════════════════════════════════════════════
+function redraw() {
+  ctx.clearRect(0, 0, W(), H());
+  drawGrid();
+  drawAxes();
+  if (pts) drawCurve();
+}
+
+function drawGrid() {
+  const step = view.gridStep();
+  const [x0, y0] = view.sw(0,    0   );
+  const [x1, y1] = view.sw(W(),  H() );
+
+  ctx.strokeStyle = '#1c2030';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+
+  const xs = Math.floor(Math.min(x0, x1) / step) * step;
+  const xe = Math.ceil (Math.max(x0, x1) / step) * step;
+  for (let wx = xs; wx <= xe + step * 1e-6; wx += step) {
+    const [sx] = view.ws(wx, 0);
+    ctx.moveTo(sx, 0);
+    ctx.lineTo(sx, H());
+  }
+
+  const ys = Math.floor(Math.min(y0, y1) / step) * step;
+  const ye = Math.ceil (Math.max(y0, y1) / step) * step;
+  for (let wy = ys; wy <= ye + step * 1e-6; wy += step) {
+    const [, sy] = view.ws(0, wy);
+    ctx.moveTo(0,    sy);
+    ctx.lineTo(W(),  sy);
+  }
+  ctx.stroke();
+}
+
+function drawAxes() {
+  const step = view.gridStep();
+  const [ox, oy] = view.ws(0, 0);
+
+  // axes lines
+  ctx.strokeStyle = '#384870';
+  ctx.lineWidth   = 1.5;
+  ctx.beginPath();
+  if (oy >= 0 && oy <= H()) { ctx.moveTo(0, oy); ctx.lineTo(W(), oy); }
+  if (ox >= 0 && ox <= W()) { ctx.moveTo(ox, 0); ctx.lineTo(ox, H()); }
+  ctx.stroke();
+
+  // tick labels
+  ctx.fillStyle    = '#485878';
+  ctx.font         = '10px Consolas, monospace';
+  const [x0, y0]   = view.sw(0,    0   );
+  const [x1, y1]   = view.sw(W(),  H() );
+  const xMin = Math.min(x0, x1), xMax = Math.max(x0, x1);
+  const yMin = Math.min(y0, y1), yMax = Math.max(y0, y1);
+  const labelOY    = Math.min(Math.max(oy + 3, 3), H() - 14);
+  const labelOX    = Math.min(Math.max(ox + 3, 3), W() - 40);
+
+  ctx.textBaseline = 'top';
+  const xs = Math.floor(xMin / step) * step;
+  const xe = Math.ceil (xMax / step) * step;
+  for (let wx = xs; wx <= xe + step * 1e-6; wx += step) {
+    if (Math.abs(wx) < step * 1e-4) continue;
+    const [sx] = view.ws(wx, 0);
+    if (sx < 4 || sx > W() - 4) continue;
+    const lbl = fmtNum(wx);
+    ctx.fillText(lbl, sx - ctx.measureText(lbl).width / 2, labelOY);
+  }
+
+  ctx.textBaseline = 'middle';
+  const ys = Math.floor(yMin / step) * step;
+  const ye = Math.ceil (yMax / step) * step;
+  for (let wy = ys; wy <= ye + step * 1e-6; wy += step) {
+    if (Math.abs(wy) < step * 1e-4) continue;
+    const [, sy] = view.ws(0, wy);
+    if (sy < 4 || sy > H() - 4) continue;
+    ctx.fillText(fmtNum(wy), labelOX, sy);
+  }
+
+  // origin label
+  if (ox > 0 && ox < W() && oy > 0 && oy < H()) {
+    ctx.textBaseline = 'top';
+    ctx.fillText('0', ox + 3, oy + 3);
+  }
+}
+
+function drawCurve() {
+  if (!pts || pts.length === 0) return;
+  ctx.strokeStyle = curColor;
+  ctx.lineWidth   = curWidth;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+
+  // Discontinuity threshold: a jump larger than this many canvas pixels breaks the path
+  const jumpThr = H() * 4;
+
+  ctx.beginPath();
+  let penDown = false;
+  let prevSY  = 0;
+
+  for (const pt of pts) {
+    if (!pt.ok) { penDown = false; continue; }
+    const [sx, sy] = view.ws(pt.x, pt.y);
+    if (!isFinite(sx) || !isFinite(sy)) { penDown = false; continue; }
+    if (penDown && Math.abs(sy - prevSY) > jumpThr) penDown = false;
+    if (!penDown) { ctx.moveTo(sx, sy); penDown = true; }
+    else            ctx.lineTo(sx, sy);
+    prevSY = sy;
+  }
+  ctx.stroke();
+}
+
+function fmtNum(v) {
+  if (v === 0) return '0';
+  const abs = Math.abs(v);
+  if (abs >= 1e4 || abs < 1e-2) return v.toExponential(1);
+  return String(parseFloat(v.toPrecision(4)));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  UI helpers
+// ══════════════════════════════════════════════════════════════════════════════
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.m === m));
+  document.getElementById('ei' ).classList.toggle('hidden', m !== 'explicit');
+  document.getElementById('pi_').classList.toggle('hidden', m !== 'param');
+  document.getElementById('re' ).classList.toggle('hidden', m !== 'explicit');
+  document.getElementById('rp' ).classList.toggle('hidden', m !== 'param');
+}
+
+function loadEx() {
+  const sel = document.getElementById('exSel');
+  if (!sel.value) return;
+  try {
+    const e = JSON.parse(sel.value);
+    setMode(e.m || 'explicit');
+    if (e.m === 'explicit') {
+      document.getElementById('yE').value = e.y || '';
+      document.getElementById('xA').value = e.a ?? -10;
+      document.getElementById('xB').value = e.b ??  10;
+    } else {
+      document.getElementById('xP').value = e.x || '';
+      document.getElementById('yP').value = e.y || '';
+      document.getElementById('tA').value = e.a ?? 0;
+      document.getElementById('tB').value = e.b ?? 6.2832;
+    }
+    if (e.n) document.getElementById('ns').value = e.n;
+    view.reset(W(), H());
+    plotCurve();
+  } catch (_) { /* ignore malformed JSON */ }
+  sel.value = '';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Plot
+// ══════════════════════════════════════════════════════════════════════════════
+function plotCurve() {
+  const statusEl = document.getElementById('status');
+  curColor = document.getElementById('cc').value;
+  curWidth = parseFloat(document.getElementById('lw').value) || 2;
+
+  if (mode === 'explicit') {
+    const exprStr = document.getElementById('yE').value.trim();
+    if (!exprStr) { setStatus('err', '错误: 请输入方程 / Please enter an equation'); return; }
+
+    const xMin = parseFloat(document.getElementById('xA').value);
+    const xMax = parseFloat(document.getElementById('xB').value);
+    const n    = Math.max(2, parseInt(document.getElementById('ns').value) || 500);
+
+    if (!isFinite(xMin) || !isFinite(xMax) || xMin >= xMax) {
+      setStatus('err', '错误: 无效范围 / Invalid range (xMin must be < xMax)');
+      return;
+    }
+
+    const expr = new Expr(exprStr);
+    pts = [];
+    const dx = (xMax - xMin) / n;
+    for (let i = 0; i <= n; i++) {
+      const x = xMin + i * dx;
+      const y = expr.eval('x', x);
+      pts.push({ x, y, ok: isFinite(y) });
+    }
+
+    const valid = pts.filter(p => p.ok).length;
+    if (valid === 0) {
+      setStatus('err', '错误: 方程无有效值 — 请检查语法 / No valid points — check syntax');
+      pts = null; redraw(); return;
+    }
+    setStatus('ok', `✓ y = ${exprStr}   [${valid} / ${n + 1} 点有效]`);
+
+  } else {
+    // parametric
+    const xStr = document.getElementById('xP').value.trim();
+    const yStr = document.getElementById('yP').value.trim();
+    if (!xStr || !yStr) { setStatus('err', '错误: 请输入参数方程 / Please enter both x(t) and y(t)'); return; }
+
+    const tMin = parseFloat(document.getElementById('tA').value);
+    const tMax = parseFloat(document.getElementById('tB').value);
+    const n    = Math.max(2, parseInt(document.getElementById('ns').value) || 500);
+
+    if (!isFinite(tMin) || !isFinite(tMax) || tMin >= tMax) {
+      setStatus('err', '错误: 无效范围 / Invalid range (tMin must be < tMax)');
+      return;
+    }
+
+    const xe = new Expr(xStr), ye = new Expr(yStr);
+    pts = [];
+    const dt = (tMax - tMin) / n;
+    for (let i = 0; i <= n; i++) {
+      const t = tMin + i * dt;
+      const x = xe.eval('t', t);
+      const y = ye.eval('t', t);
+      pts.push({ x, y, ok: isFinite(x) && isFinite(y) });
+    }
+
+    const valid = pts.filter(p => p.ok).length;
+    if (valid === 0) {
+      setStatus('err', '错误: 参数方程无有效值 / No valid points — check syntax');
+      pts = null; redraw(); return;
+    }
+    setStatus('ok', `✓ x(t)=${xStr},  y(t)=${yStr}   [${valid} / ${n + 1} 点有效]`);
+  }
+
+  redraw();
+}
+
+function setStatus(cls, msg) {
+  const el = document.getElementById('status');
+  el.className = cls;
+  el.textContent = msg;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Mouse & keyboard interaction
+// ══════════════════════════════════════════════════════════════════════════════
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0) { dragging = true; dragX = e.clientX; dragY = e.clientY; canvas.style.cursor = 'grabbing'; }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const r  = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left;
+  const sy = e.clientY - r.top;
+  const [wx, wy] = view.sw(sx, sy);
+  coordsEl.textContent = `x = ${wx.toPrecision(5)},   y = ${wy.toPrecision(5)}`;
+
+  if (dragging) {
+    view.pan(e.clientX - dragX, e.clientY - dragY);
+    dragX = e.clientX; dragY = e.clientY;
+    redraw();
+  }
+});
+
+canvas.addEventListener('mouseup',    () => { dragging = false; canvas.style.cursor = 'crosshair'; });
+canvas.addEventListener('mouseleave', () => { dragging = false; canvas.style.cursor = 'crosshair'; coordsEl.textContent = ''; });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r  = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left;
+  const sy = e.clientY - r.top;
+  view.zoom(e.deltaY > 0 ? 0.88 : 1 / 0.88, sx, sy);
+  redraw();
+}, { passive: false });
+
+// touch support (pinch-to-zoom + single-finger pan)
+let lastTouch = null, lastDist = 0;
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastDist  = Math.hypot(dx, dy);
+    lastTouch = null;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  if (e.touches.length === 1 && lastTouch) {
+    view.pan(e.touches[0].clientX - lastTouch.x, e.touches[0].clientY - lastTouch.y);
+    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    redraw();
+  } else if (e.touches.length === 2) {
+    const dx   = e.touches[0].clientX - e.touches[1].clientX;
+    const dy   = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    if (lastDist > 0) {
+      const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - r.left;
+      const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - r.top;
+      view.zoom(dist / lastDist, cx, cy);
+      redraw();
+    }
+    lastDist = dist;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { lastTouch = null; lastDist = 0; });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') { view.reset(W(), H()); redraw(); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Boot — canvas is sized by ResizeObserver; plot default curve on first render
+// ══════════════════════════════════════════════════════════════════════════════
+// ResizeObserver fires synchronously once on observe(), so resizeCanvas() →
+// view.reset() → redraw() will be called automatically.  We hook plotCurve()
+// to run after the first resize so the default sin(x) appears immediately.
+let booted = false;
+const _origResize = resizeCanvas;
+// Override to also plot on first call
+(function () {
+  const area = document.getElementById('cv-area');
+  // Manually trigger once in case ResizeObserver fires before script end
+  canvas.width  = area.clientWidth  || 800;
+  canvas.height = area.clientHeight || 600;
+  view.reset(W(), H());
+  plotCurve();   // draw sin(x) immediately
+})();
+</script>
+</body>
+</html>
