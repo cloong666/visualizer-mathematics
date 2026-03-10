@@ -14,14 +14,21 @@
 #include <QColorDialog>
 #include <QPalette>
 #include <QRegularExpression>
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 // ─────────────────────────────────────────────────────────────
 //  Mode indices
 // ─────────────────────────────────────────────────────────────
 static constexpr int MODE_2D_EXPLICIT   = 0;
-static constexpr int MODE_2D_PARAMETRIC = 1;
-static constexpr int MODE_3D_PARAMETRIC = 2;
+static constexpr int MODE_2D_IMPLICIT   = 1;
+static constexpr int MODE_2D_PARAMETRIC = 2;
+static constexpr int MODE_3D_PARAMETRIC = 3;
+static constexpr int MODE_SEPARATOR     = -1;
+static const QRegularExpression RX_X_OF_T("^x\\s*(\\(\\s*[tT]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
+static const QRegularExpression RX_Y_OF_T("^y\\s*(\\(\\s*[tT]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
+static const QRegularExpression RX_Z_OF_T("^z\\s*(\\(\\s*[tT]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
 
 // ─────────────────────────────────────────────────────────────
 //  Built-in examples
@@ -36,20 +43,23 @@ struct Example {
 };
 
 static const QList<Example> g_examples = {
-    Example{ "──── 2D Explicit ────", -1, {},{},{},{},{},{}, -10, 10, 500, Qt::blue },
+    Example{ "──── 2D Explicit ────", MODE_SEPARATOR, {},{},{},{},{},{}, -10, 10, 500, Qt::blue },
     Example{ "Sine wave  y=sin(x)",       MODE_2D_EXPLICIT, "sin(x)", {},{},{},{},{}, -6.28, 6.28, 400, QColor(0,120,200) },
     Example{ "Parabola  y=x^2",           MODE_2D_EXPLICIT, "x^2",    {},{},{},{},{}, -5,    5,    300, QColor(200,80,0) },
     Example{ "Cubic  y=x^3-3*x",          MODE_2D_EXPLICIT, "x^3-3*x",{},{},{},{},{}, -3,    3,    300, QColor(160,0,200) },
     Example{ "Gaussian  y=exp(-x^2)",     MODE_2D_EXPLICIT, "exp(-x^2)",{},{},{},{},{}, -4,   4,    400, QColor(0,180,100) },
     Example{ "Damped sine  y=sin(x)/x",   MODE_2D_EXPLICIT, "sin(x)/x", {},{},{},{},{}, -20,  20,   600, QColor(200,0,100) },
     Example{ "Abs cosine  y=abs(cos(x))",  MODE_2D_EXPLICIT, "abs(cos(x))",{},{},{},{},{}, -6.28, 6.28, 400, QColor(0,160,180) },
-    Example{ "──── 2D Parametric ────", -1, {},{},{},{},{},{}, 0, 6.28, 500, Qt::blue },
+    Example{ "──── 2D Implicit ────", MODE_SEPARATOR, {},{},{},{},{},{}, -10, 10, 500, Qt::blue },
+    Example{ "Circle  x^2+y^2=4",          MODE_2D_IMPLICIT, "x^2 + y^2 = 4", {},{},{},{},{}, -3, 3, 500, QColor(180,70,0) },
+    Example{ "Lemniscate  (x^2+y^2)^2=2(x^2-y^2)", MODE_2D_IMPLICIT, "(x^2+y^2)^2 = 2*(x^2-y^2)", {},{},{},{},{}, -2, 2, 600, QColor(140,0,200) },
+    Example{ "──── 2D Parametric ────", MODE_SEPARATOR, {},{},{},{},{},{}, 0, 6.28, 500, Qt::blue },
     Example{ "Circle  x=cos(t), y=sin(t)",          MODE_2D_PARAMETRIC, {}, "cos(t)", "sin(t)", {},{}, {}, 0, 6.28, 360, QColor(0,100,220) },
     Example{ "Ellipse  x=2cos(t), y=sin(t)",        MODE_2D_PARAMETRIC, {}, "2*cos(t)", "sin(t)", {},{}, {}, 0, 6.28, 360, QColor(200,60,0) },
     Example{ "Lissajous  x=sin(3t), y=sin(2t)",     MODE_2D_PARAMETRIC, {}, "sin(3*t)", "sin(2*t)", {},{}, {}, 0, 6.28, 600, QColor(160,0,200) },
     Example{ "Archimedean spiral  x=t*cos(t),y=t*sin(t)", MODE_2D_PARAMETRIC, {}, "t*cos(t)", "t*sin(t)", {},{}, {}, 0, 25.13, 800, QColor(0,160,80) },
     Example{ "Rose  x=cos(4t)cos(t), y=cos(4t)sin(t)",    MODE_2D_PARAMETRIC, {}, "cos(4*t)*cos(t)", "cos(4*t)*sin(t)", {},{}, {}, 0, 6.28, 800, QColor(220,30,80) },
-    Example{ "──── 3D Parametric ────", -1, {},{},{},{},{},{}, 0, 30, 600, Qt::blue },
+    Example{ "──── 3D Parametric ────", MODE_SEPARATOR, {},{},{},{},{},{}, 0, 30, 600, Qt::blue },
     Example{ "Helix  x=cos(t), y=sin(t), z=t/5",           MODE_3D_PARAMETRIC, {},{},{}, "cos(t)", "sin(t)", "t/5",    0, 30, 600, QColor(0,120,220) },
     Example{ "Conical helix  x=t*cos(t),y=t*sin(t),z=t",   MODE_3D_PARAMETRIC, {},{},{}, "t*cos(t)", "t*sin(t)", "t",  0, 12.56, 600, QColor(200,80,0) },
     Example{ "Trefoil knot",                                MODE_3D_PARAMETRIC, {},{},{},
@@ -122,6 +132,7 @@ QWidget *MainWindow::buildControlPanel() {
     QVBoxLayout *modeLayout = new QVBoxLayout(modeGroup);
     m_modeCombo = new QComboBox;
     m_modeCombo->addItem("2D Explicit  ( y = f(x) )");
+    m_modeCombo->addItem("2D General Curve  ( F(x,y)=0 )");
     m_modeCombo->addItem("2D Parametric  ( x(t), y(t) )");
     m_modeCombo->addItem("3D Parametric  ( x(t), y(t), z(t) )");
     modeLayout->addWidget(m_modeCombo);
@@ -172,6 +183,14 @@ QGroupBox *MainWindow::buildEquationGroup() {
     m_yExpr->setPlaceholderText("e.g. sin(x)  or  x^2+1");
     f1->addRow("y =", m_yExpr);
 
+    // ── 2D Implicit ──
+    m_eq2DImplicitWidget = new QWidget;
+    QFormLayout *fImplicit = new QFormLayout(m_eq2DImplicitWidget);
+    fImplicit->setContentsMargins(0,0,0,0);
+    m_curveExpr2D = new QLineEdit("x^2 + y^2 = 1");
+    m_curveExpr2D->setPlaceholderText("e.g. x^2 + y^2 = 1");
+    fImplicit->addRow("Equation:", m_curveExpr2D);
+
     // ── 2D Parametric ──
     m_eq2DParamWidget = new QWidget;
     QFormLayout *f2 = new QFormLayout(m_eq2DParamWidget);
@@ -198,6 +217,7 @@ QGroupBox *MainWindow::buildEquationGroup() {
     f3->addRow("z(t) =", m_zExpr3D);
 
     layout->addWidget(m_eq2DExplicitWidget);
+    layout->addWidget(m_eq2DImplicitWidget);
     layout->addWidget(m_eq2DParamWidget);
     layout->addWidget(m_eq3DParamWidget);
 
@@ -274,10 +294,12 @@ QGroupBox *MainWindow::buildExamplesGroup() {
 
 void MainWindow::onModeChanged(int index) {
     bool is2DExplicit   = (index == MODE_2D_EXPLICIT);
+    bool is2DImplicit   = (index == MODE_2D_IMPLICIT);
     bool is2DParametric = (index == MODE_2D_PARAMETRIC);
     bool is3DParametric = (index == MODE_3D_PARAMETRIC);
 
     if (m_eq2DExplicitWidget)   m_eq2DExplicitWidget->setVisible(is2DExplicit);
+    if (m_eq2DImplicitWidget)   m_eq2DImplicitWidget->setVisible(is2DImplicit);
     if (m_eq2DParamWidget)      m_eq2DParamWidget->setVisible(is2DParametric);
     if (m_eq3DParamWidget)      m_eq3DParamWidget->setVisible(is3DParametric);
 
@@ -294,6 +316,7 @@ void MainWindow::onPlotClicked() {
     bool ok = false;
 
     if (mode == MODE_2D_EXPLICIT)        ok = generateCurve2DExplicit();
+    else if (mode == MODE_2D_IMPLICIT)   ok = generateCurve2DImplicit();
     else if (mode == MODE_2D_PARAMETRIC) ok = generateCurve2DParametric();
     else if (mode == MODE_3D_PARAMETRIC) ok = generateCurve3DParametric();
 
@@ -316,7 +339,7 @@ void MainWindow::onResetViewClicked() {
 void MainWindow::onExampleSelected(int index) {
     if (index < 0 || index >= g_examples.size()) return;
     const Example &ex = g_examples[index];
-    if (ex.mode < 0) return; // separator
+    if (ex.mode == MODE_SEPARATOR) return;
 
     m_modeCombo->setCurrentIndex(ex.mode);
     onModeChanged(ex.mode);
@@ -329,6 +352,8 @@ void MainWindow::onExampleSelected(int index) {
 
     if (ex.mode == MODE_2D_EXPLICIT) {
         m_yExpr->setText(ex.y);
+    } else if (ex.mode == MODE_2D_IMPLICIT) {
+        m_curveExpr2D->setText(ex.y);
     } else if (ex.mode == MODE_2D_PARAMETRIC) {
         m_xExpr2D->setText(ex.x);
         m_yExpr2D->setText(ex.yp);
@@ -411,9 +436,153 @@ bool MainWindow::generateCurve2DExplicit() {
     return true;
 }
 
+bool MainWindow::generateCurve2DImplicit() {
+    QString exprStr = m_curveExpr2D->text().trimmed();
+    if (exprStr.isEmpty()) {
+        logMessage("Error: curve equation is empty.", true);
+        return false;
+    }
+
+    int eqPos = exprStr.indexOf('=');
+    if (eqPos >= 0) {
+        QString lhs = exprStr.left(eqPos).trimmed();
+        QString rhs = exprStr.mid(eqPos + 1).trimmed();
+        if (lhs.isEmpty() || rhs.isEmpty()) {
+            logMessage("Error: invalid equation format. Use F(x,y)=G(x,y).", true);
+            return false;
+        }
+        exprStr = "(" + lhs + ")-(" + rhs + ")";
+    }
+
+    ExprParser parser;
+    std::string err;
+    if (!parser.compile(exprStr.toStdString(), err)) {
+        logMessage("Parse error in implicit equation: " + QString::fromStdString(err), true);
+        return false;
+    }
+
+    double xMin = m_tMinSpin->value();
+    double xMax = m_tMaxSpin->value();
+    int requestedGridSize = m_samplesSpin->value();
+    if (xMin >= xMax) {
+        logMessage("Error: Min must be less than Max.", true);
+        return false;
+    }
+
+    static constexpr int MIN_GRID_SIZE = 20;
+    static constexpr int MAX_GRID_SIZE = 800;
+    const int grid = std::max(MIN_GRID_SIZE, std::min(requestedGridSize, MAX_GRID_SIZE));
+    const double yMin = xMin;
+    const double yMax = xMax;
+    const double dx = (xMax - xMin) / (grid - 1);
+    const double dy = (yMax - yMin) / (grid - 1);
+
+    struct CellSample { double value{0}; bool valid{false}; };
+    std::vector<CellSample> field((size_t)grid * (size_t)grid);
+    auto at = [&](int ix, int iy) -> CellSample& {
+        return field[(size_t)iy * (size_t)grid + (size_t)ix];
+    };
+
+    int invalidCount = 0;
+    for (int iy = 0; iy < grid; ++iy) {
+        double y = yMin + iy * dy;
+        for (int ix = 0; ix < grid; ++ix) {
+            double x = xMin + ix * dx;
+            parser.setVar("x", x);
+            parser.setVar("y", y);
+            bool valid = true;
+            double f = parser.evaluate(valid);
+            CellSample &s = at(ix, iy);
+            s.value = f;
+            s.valid = valid && std::isfinite(f);
+            if (!s.valid) ++invalidCount;
+        }
+    }
+
+    Curve2D curve;
+    curve.style.color     = m_currentColor;
+    curve.style.lineWidth = (float)m_lineWidthSpin->value();
+    curve.label           = "F(x,y)=0";
+
+    auto edgeCrosses = [](double v1, double v2) {
+        if (!std::isfinite(v1) || !std::isfinite(v2)) return false;
+        return (v1 == 0.0) || (v2 == 0.0) || ((v1 < 0.0) != (v2 < 0.0));
+    };
+
+    int hitCount = 0;
+    for (int iy = 0; iy < grid - 1; ++iy) {
+        for (int ix = 0; ix < grid - 1; ++ix) {
+            const CellSample &a = at(ix, iy);
+            const CellSample &b = at(ix + 1, iy);
+            const CellSample &c = at(ix, iy + 1);
+            const CellSample &d = at(ix + 1, iy + 1);
+            if (!a.valid || !b.valid || !c.valid || !d.valid) continue;
+
+            const double minV = std::min(std::min(a.value, b.value), std::min(c.value, d.value));
+            const double maxV = std::max(std::max(a.value, b.value), std::max(c.value, d.value));
+            if (minV > 0.0 || maxV < 0.0) continue;
+
+            const double x0 = xMin + ix * dx;
+            const double x1 = x0 + dx;
+            const double y0 = yMin + iy * dy;
+            const double y1 = y0 + dy;
+            std::vector<Point2D> intersections;
+            intersections.reserve(4);
+
+            auto addIntersection = [&](double px1, double py1, double pv1,
+                                       double px2, double py2, double pv2) {
+                if (!edgeCrosses(pv1, pv2)) return;
+                double denom = pv1 - pv2;
+                double t = 0.5;
+                if (std::abs(denom) > 1e-12) t = pv1 / denom;
+                t = std::clamp(t, 0.0, 1.0);
+                intersections.push_back(Point2D{
+                    px1 + t * (px2 - px1),
+                    py1 + t * (py2 - py1),
+                    true
+                });
+            };
+
+            auto appendSegment = [&](const Point2D &p0, const Point2D &p1) {
+                curve.points.push_back(p0);
+                curve.points.push_back(p1);
+                curve.points.push_back(Point2D{0.0, 0.0, false});
+                ++hitCount;
+            };
+
+            addIntersection(x0, y0, a.value, x1, y0, b.value); // top
+            addIntersection(x1, y0, b.value, x1, y1, d.value); // right
+            addIntersection(x0, y1, c.value, x1, y1, d.value); // bottom
+            addIntersection(x0, y0, a.value, x0, y1, c.value); // left
+
+            if (intersections.size() < 2) continue;
+            if (intersections.size() == 2) {
+                appendSegment(intersections[0], intersections[1]);
+            } else {
+                appendSegment(intersections[0], intersections[1]);
+                appendSegment(intersections[2], intersections[3]);
+            }
+        }
+    }
+
+    if (hitCount == 0) {
+        logMessage("Error: no curve points found in current range.", true);
+        return false;
+    }
+
+    m_plot2D->addCurve(curve);
+    if (invalidCount > 0)
+        logMessage(QString("Plotted implicit curve (%1 samples, %2 invalid evaluations).").arg(hitCount).arg(invalidCount));
+    else
+        logMessage(QString("Plotted implicit curve (%1 samples).").arg(hitCount));
+    return true;
+}
+
 bool MainWindow::generateCurve2DParametric() {
     QString xStr = m_xExpr2D->text().trimmed();
     QString yStr = m_yExpr2D->text().trimmed();
+    xStr.remove(RX_X_OF_T);
+    yStr.remove(RX_Y_OF_T);
 
     if (xStr.isEmpty() || yStr.isEmpty()) {
         logMessage("Error: both x(t) and y(t) expressions are required.", true);
@@ -476,6 +645,9 @@ bool MainWindow::generateCurve3DParametric() {
     QString xStr = m_xExpr3D->text().trimmed();
     QString yStr = m_yExpr3D->text().trimmed();
     QString zStr = m_zExpr3D->text().trimmed();
+    xStr.remove(RX_X_OF_T);
+    yStr.remove(RX_Y_OF_T);
+    zStr.remove(RX_Z_OF_T);
 
     if (xStr.isEmpty() || yStr.isEmpty() || zStr.isEmpty()) {
         logMessage("Error: x(t), y(t) and z(t) expressions are all required.", true);
