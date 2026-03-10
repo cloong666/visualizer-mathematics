@@ -100,7 +100,11 @@
     </div>
   </div>
 
-  <!-- CDN libraries -->
+  <!-- CDN libraries
+       SECURITY NOTE: Add integrity="sha384-<hash>" crossorigin="anonymous"
+       attributes before deploying to production. Compute hashes with:
+         curl <url> | openssl dgst -sha384 -binary | base64
+  -->
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.3/math.min.js"></script>
 
