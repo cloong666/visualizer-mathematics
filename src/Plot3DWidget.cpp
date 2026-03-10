@@ -4,6 +4,7 @@
 #include <QPen>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QKeyEvent>
 #include <cmath>
 #include <algorithm>
 #include <array>
@@ -29,6 +30,7 @@ Plot3DWidget::Plot3DWidget(QWidget *parent)
     setAutoFillBackground(true);
     setMinimumSize(400, 300);
     setMouseTracking(true);
+    setFocusPolicy(Qt::StrongFocus);
 }
 
 // ──────────────────────────────────────────
@@ -108,31 +110,28 @@ void Plot3DWidget::paintEvent(QPaintEvent *) {
     p.setFont(f);
     p.drawText(rect().adjusted(4, 0, -4, -4),
                Qt::AlignBottom | Qt::AlignLeft,
-               "Left-drag: rotate  |  Right-drag / Shift+drag: pan  |  Wheel: zoom  |  Double-click: reset");
+               "Left-drag: rotate  |  Right-drag / Shift+drag: pan  |  Wheel: zoom  |  WASD: move camera  |  Double-click: reset");
 }
 
 void Plot3DWidget::drawGrid(QPainter &p) {
     // Draw a flat ground grid on the z=0 plane
-    const int lines = 10;
-    const double step = 2.0;
-
-    QPen gridPen(QColor(210, 215, 225), 1);
-    p.setPen(gridPen);
+    const int lines = 20;
+    const double step = 1.0;
+    const double limit = lines * step;
 
     for (int i = -lines; i <= lines; ++i) {
-        double d = i * step;
-        QPointF a = project(d, -lines * step, 0);
-        QPointF b = project(d,  lines * step, 0);
-        p.drawLine(a, b);
+        const double d = i * step;
+        const bool majorLine = (i % 5 == 0);
+        QPen gridPen(majorLine ? QColor(186, 195, 210) : QColor(214, 221, 232), majorLine ? 1.25 : 1.0);
+        p.setPen(gridPen);
 
-        QPointF c = project(-lines * step, d, 0);
-        QPointF d2 = project( lines * step, d, 0);
-        p.drawLine(c, d2);
+        p.drawLine(project(d, -limit, 0), project(d, limit, 0));
+        p.drawLine(project(-limit, d, 0), project(limit, d, 0));
     }
 }
 
 void Plot3DWidget::drawAxes(QPainter &p) {
-    const double axisLen = 8.0;
+    const double axisLen = 12.0;
 
     struct Axis {
         double x0, y0, z0, x1, y1, z1;
@@ -147,15 +146,20 @@ void Plot3DWidget::drawAxes(QPainter &p) {
     }};
 
     for (const auto &ax : axes) {
-        QPen pen(ax.color, 2);
+        QPen pen(ax.color, 3);
         p.setPen(pen);
         QPointF from = project(ax.x0, ax.y0, ax.z0);
         QPointF to   = project(ax.x1, ax.y1, ax.z1);
         p.drawLine(from, to);
+
+        QPen arrowPen(ax.color, 2);
+        p.setPen(arrowPen);
+        p.drawEllipse(to, 2.0, 2.0);
+
         p.setPen(ax.color);
         QFont f = p.font();
         f.setBold(true);
-        f.setPointSize(9);
+        f.setPointSize(10);
         p.setFont(f);
         p.drawText(to + QPointF(4, 4), ax.label);
         f.setBold(false);
@@ -228,6 +232,7 @@ void Plot3DWidget::drawLabels(QPainter &p) {
 // ──────────────────────────────────────────
 
 void Plot3DWidget::mousePressEvent(QMouseEvent *event) {
+    setFocus();
     m_lastMouse = event->position().toPoint();
 
     if (event->button() == Qt::LeftButton &&
@@ -272,4 +277,41 @@ void Plot3DWidget::wheelEvent(QWheelEvent *event) {
 
 void Plot3DWidget::mouseDoubleClickEvent(QMouseEvent *) {
     resetView();
+}
+
+void Plot3DWidget::keyPressEvent(QKeyEvent *event) {
+    double moveStep = std::max(0.2, 12.0 / m_zoom);
+    const double az = m_azimuth * M_PI / 180.0;
+    const double cosAz = std::cos(az);
+    const double sinAz = std::sin(az);
+
+    bool handled = true;
+    switch (event->key()) {
+    case Qt::Key_W:
+        m_panX += sinAz * moveStep;
+        m_panY += cosAz * moveStep;
+        break;
+    case Qt::Key_S:
+        m_panX -= sinAz * moveStep;
+        m_panY -= cosAz * moveStep;
+        break;
+    case Qt::Key_A:
+        m_panX -= cosAz * moveStep;
+        m_panY += sinAz * moveStep;
+        break;
+    case Qt::Key_D:
+        m_panX += cosAz * moveStep;
+        m_panY -= sinAz * moveStep;
+        break;
+    default:
+        handled = false;
+        break;
+    }
+
+    if (handled) {
+        update();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
 }
