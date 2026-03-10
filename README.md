@@ -32,13 +32,15 @@ The application features a **dark-themed split-panel layout**:
 
 ### In a Web Browser (no install required)
 
-Open `src/index.html` directly in any modern browser. The CDN scripts for Plotly.js and math.js will load automatically (requires internet access).
+Open `src/index.html` directly in any modern browser (the vendor libraries are bundled locally — no internet required):
 
 ```bash
 # e.g. with a simple local server
 npx serve src
 # then open http://localhost:3000
 ```
+
+Or simply double-click `src/index.html` in your file manager.
 
 ### As a Desktop App (Electron)
 
@@ -87,9 +89,15 @@ git push origin v1.0.0
 
 You can also trigger a build manually from the **Actions** tab using *workflow_dispatch*.
 
----
+### Updating Vendor Libraries
 
-## Equation Input Formats
+The bundled Plotly.js and math.js files live in `src/vendor/`. To update them to newer versions, edit `package.json`, run `npm install`, then:
+
+```bash
+npm run vendor:update
+```
+
+---
 
 | Type | Format | Example |
 |---|---|---|

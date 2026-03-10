@@ -309,10 +309,10 @@ function init() {
   addCurve('y=sin(x)', '#7aa2f7', 2);
 }
 
-// Wait for DOM + CDN scripts to load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+// Wait for DOM + all CDN scripts to finish loading.
+// 'complete' means everything is already done; otherwise wait for 'load'.
+if (document.readyState === 'complete') {
+  init();
 } else {
-  // DOM already ready, but wait for CDN scripts
   window.addEventListener('load', init);
 }
