@@ -13,6 +13,7 @@ public:
     void addCurve(const Curve3D &curve);
     void clearCurves();
     void resetView();
+    int  curveCount() const { return static_cast<int>(m_curves.size()); }
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -43,6 +44,7 @@ private:
     // Pan offset in world-space (shift of the camera target)
     double m_panX{0.0};
     double m_panY{0.0};
+    double m_panZ{0.0};
 
     // Drag state
     bool    m_rotating{false};

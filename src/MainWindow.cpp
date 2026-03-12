@@ -26,6 +26,8 @@ static constexpr int MODE_2D_IMPLICIT   = 1;
 static constexpr int MODE_2D_PARAMETRIC = 2;
 static constexpr int MODE_3D_PARAMETRIC = 3;
 static constexpr int MODE_3D_SURFACE    = 4;
+static constexpr int MODE_3D_EXPL_CURVE = 5;   // y=f(x), z=g(x)
+static constexpr int MODE_3D_IMPLICIT   = 6;   // F(x,y,z)=0
 static constexpr int MODE_SEPARATOR     = -1;
 static const QRegularExpression RX_X_OF_T("^x\\s*(\\(\\s*[tT]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
 static const QRegularExpression RX_Y_OF_T("^y\\s*(\\(\\s*[tT]\\s*\\))?\\s*=\\s*", QRegularExpression::CaseInsensitiveOption);
@@ -71,6 +73,14 @@ static const QList<Example> g_examples = {
     Example{ "Paraboloid  z=x^2+y^2", MODE_3D_SURFACE, "x^2 + y^2", {},{},{},{},{}, -2, 2, 60, QColor(180,80,0) },
     Example{ "Saddle  z=x^2-y^2", MODE_3D_SURFACE, "x^2 - y^2", {},{},{},{},{}, -2, 2, 60, QColor(100,70,200) },
     Example{ "Wave  z=sin(x)*cos(y)", MODE_3D_SURFACE, "sin(x)*cos(y)", {},{},{},{},{}, -6.28, 6.28, 80, QColor(0,140,220) },
+    Example{ "──── 3D Explicit Curve ────", MODE_SEPARATOR, {},{},{},{},{},{}, -5, 5, 500, Qt::blue },
+    Example{ "Helix  y=sin(x), z=cos(x)",  MODE_3D_EXPL_CURVE, {},{},{}, "sin(x)", "cos(x)", {}, -9.42, 9.42, 500, QColor(0,120,220) },
+    Example{ "Parabolic arch  y=x^2, z=x", MODE_3D_EXPL_CURVE, {},{},{}, "x^2",    "x",      {}, -3,    3,    300, QColor(200,80,0) },
+    Example{ "──── 3D Implicit Surface ────", MODE_SEPARATOR, {},{},{},{},{},{}, -2, 2, 40, Qt::blue },
+    Example{ "Sphere  x^2+y^2+z^2=1",       MODE_3D_IMPLICIT, "x^2+y^2+z^2-1", {},{},{},{},{}, -1.5, 1.5, 30, QColor(0,140,220) },
+    Example{ "Cone  z^2=x^2+y^2",           MODE_3D_IMPLICIT, "z^2-x^2-y^2",   {},{},{},{},{}, -2,   2,   30, QColor(180,80,0) },
+    Example{ "Torus  (sqrt(x^2+y^2)-1)^2+z^2=0.25",
+             MODE_3D_IMPLICIT, "(sqrt(x^2+y^2)-1)^2+z^2-0.25", {},{},{},{},{}, -2, 2, 40, QColor(160,0,200) },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -141,6 +151,8 @@ QWidget *MainWindow::buildControlPanel() {
     m_modeCombo->addItem("2D Parametric  ( x(t), y(t) )");
     m_modeCombo->addItem("3D Parametric  ( x(t), y(t), z(t) )");
     m_modeCombo->addItem("3D Surface  ( z = f(x,y) )");
+    m_modeCombo->addItem("3D Explicit Curve  ( y(x), z(x) )");
+    m_modeCombo->addItem("3D Implicit Surface  ( F(x,y,z)=0 )");
     modeLayout->addWidget(m_modeCombo);
     connect(m_modeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::onModeChanged);
@@ -230,11 +242,37 @@ QGroupBox *MainWindow::buildEquationGroup() {
     m_surfaceExpr3D->setPlaceholderText("e.g. x^2+y^2 or sin(x)*cos(y)");
     f4->addRow("z(x,y) =", m_surfaceExpr3D);
 
+    // ── 3D Explicit Curve  y=f(x), z=g(x) ──
+    m_eq3DExplCurveWidget = new QWidget;
+    QFormLayout *f5 = new QFormLayout(m_eq3DExplCurveWidget);
+    f5->setContentsMargins(0,0,0,0);
+    m_yFromX3D = new QLineEdit("sin(x)");
+    m_zFromX3D = new QLineEdit("cos(x)");
+    m_yFromX3D->setPlaceholderText("e.g. sin(x)");
+    m_zFromX3D->setPlaceholderText("e.g. cos(x)");
+    f5->addRow("y(x) =", m_yFromX3D);
+    f5->addRow("z(x) =", m_zFromX3D);
+
+    // ── 3D Implicit Surface  F(x,y,z)=0 ──
+    m_eq3DImplicitWidget = new QWidget;
+    QFormLayout *f6 = new QFormLayout(m_eq3DImplicitWidget);
+    f6->setContentsMargins(0,0,0,0);
+    m_fImplicit3D = new QLineEdit("x^2+y^2+z^2-1");
+    m_fImplicit3D->setPlaceholderText("e.g. x^2+y^2+z^2-1  (=0 implied)");
+    f6->addRow("F(x,y,z) =", m_fImplicit3D);
+    QLabel *implHint = new QLabel("<i>Enter F so that F(x,y,z)=0 defines the surface.<br>"
+                                  "Range applies to x, y <b>and</b> z.</i>");
+    implHint->setWordWrap(true);
+    implHint->setStyleSheet("color:#555;");
+    f6->addRow(implHint);
+
     layout->addWidget(m_eq2DExplicitWidget);
     layout->addWidget(m_eq2DImplicitWidget);
     layout->addWidget(m_eq2DParamWidget);
     layout->addWidget(m_eq3DParamWidget);
     layout->addWidget(m_eq3DSurfaceWidget);
+    layout->addWidget(m_eq3DExplCurveWidget);
+    layout->addWidget(m_eq3DImplicitWidget);
 
     return group;
 }
@@ -308,24 +346,25 @@ QGroupBox *MainWindow::buildExamplesGroup() {
 // ─────────────────────────────────────────────────────────────
 
 void MainWindow::onModeChanged(int index) {
-    bool is2DExplicit   = (index == MODE_2D_EXPLICIT);
-    bool is2DImplicit   = (index == MODE_2D_IMPLICIT);
-    bool is2DParametric = (index == MODE_2D_PARAMETRIC);
-    bool is3DParametric = (index == MODE_3D_PARAMETRIC);
-    bool is3DSurface    = (index == MODE_3D_SURFACE);
+    bool is2DExplicit    = (index == MODE_2D_EXPLICIT);
+    bool is2DImplicit    = (index == MODE_2D_IMPLICIT);
+    bool is2DParametric  = (index == MODE_2D_PARAMETRIC);
+    bool is3DParametric  = (index == MODE_3D_PARAMETRIC);
+    bool is3DSurface     = (index == MODE_3D_SURFACE);
+    bool is3DExplCurve   = (index == MODE_3D_EXPL_CURVE);
+    bool is3DImplicit    = (index == MODE_3D_IMPLICIT);
 
-    if (m_eq2DExplicitWidget)   m_eq2DExplicitWidget->setVisible(is2DExplicit);
-    if (m_eq2DImplicitWidget)   m_eq2DImplicitWidget->setVisible(is2DImplicit);
-    if (m_eq2DParamWidget)      m_eq2DParamWidget->setVisible(is2DParametric);
-    if (m_eq3DParamWidget)      m_eq3DParamWidget->setVisible(is3DParametric);
-    if (m_eq3DSurfaceWidget)    m_eq3DSurfaceWidget->setVisible(is3DSurface);
+    if (m_eq2DExplicitWidget)    m_eq2DExplicitWidget->setVisible(is2DExplicit);
+    if (m_eq2DImplicitWidget)    m_eq2DImplicitWidget->setVisible(is2DImplicit);
+    if (m_eq2DParamWidget)       m_eq2DParamWidget->setVisible(is2DParametric);
+    if (m_eq3DParamWidget)       m_eq3DParamWidget->setVisible(is3DParametric);
+    if (m_eq3DSurfaceWidget)     m_eq3DSurfaceWidget->setVisible(is3DSurface);
+    if (m_eq3DExplCurveWidget)   m_eq3DExplCurveWidget->setVisible(is3DExplCurve);
+    if (m_eq3DImplicitWidget)    m_eq3DImplicitWidget->setVisible(is3DImplicit);
 
-    // Switch canvas
-    m_canvasStack->setCurrentIndex((is3DParametric || is3DSurface) ? 1 : 0);
-
-    // Adjust range label
-    QString label = is2DExplicit ? "x Range" : "t Range";
-    // (GroupBox title already says "Range & Samples")
+    // Switch canvas: 3D for any 3D mode
+    const bool is3D = is3DParametric || is3DSurface || is3DExplCurve || is3DImplicit;
+    m_canvasStack->setCurrentIndex(is3D ? 1 : 0);
 }
 
 void MainWindow::onPlotClicked() {
@@ -337,6 +376,8 @@ void MainWindow::onPlotClicked() {
     else if (mode == MODE_2D_PARAMETRIC) ok = generateCurve2DParametric();
     else if (mode == MODE_3D_PARAMETRIC) ok = generateCurve3DParametric();
     else if (mode == MODE_3D_SURFACE)    ok = generateSurface3D();
+    else if (mode == MODE_3D_EXPL_CURVE) ok = generateExplicitCurve3D();
+    else if (mode == MODE_3D_IMPLICIT)   ok = generateImplicitSurface3D();
 
     if (ok) statusBar()->showMessage("Curve plotted successfully.");
 }
@@ -381,6 +422,12 @@ void MainWindow::onExampleSelected(int index) {
         m_zExpr3D->setText(ex.zp3);
     } else if (ex.mode == MODE_3D_SURFACE) {
         m_surfaceExpr3D->setText(ex.y);
+    } else if (ex.mode == MODE_3D_EXPL_CURVE) {
+        // The Example struct reuses xp for y(x) and yp3 for z(x) in this mode.
+        m_yFromX3D->setText(ex.xp);
+        m_zFromX3D->setText(ex.yp3);
+    } else if (ex.mode == MODE_3D_IMPLICIT) {
+        m_fImplicit3D->setText(ex.y);
     }
 
     onPlotClicked();
@@ -825,6 +872,233 @@ bool MainWindow::generateSurface3D() {
     else
         logMessage(QString("Plotted 3D surface z=%1 (%2x%2 grid).").arg(zStr).arg(grid));
 
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  3D Explicit Curve  y = f(x), z = g(x)
+// ─────────────────────────────────────────────────────────────
+
+bool MainWindow::generateExplicitCurve3D() {
+    static const QRegularExpression RX_Y_OF_X("^y\\s*(\\(\\s*[xX]\\s*\\))?\\s*=\\s*",
+                                               QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression RX_Z_OF_X("^z\\s*(\\(\\s*[xX]\\s*\\))?\\s*=\\s*",
+                                               QRegularExpression::CaseInsensitiveOption);
+
+    QString yStr = m_yFromX3D->text().trimmed();
+    QString zStr = m_zFromX3D->text().trimmed();
+    yStr.remove(RX_Y_OF_X);
+    zStr.remove(RX_Z_OF_X);
+
+    if (yStr.isEmpty() || zStr.isEmpty()) {
+        logMessage("Error: both y(x) and z(x) expressions are required.", true);
+        return false;
+    }
+
+    ExprParser yParser, zParser;
+    std::string err;
+    if (!yParser.compile(yStr.toStdString(), err)) {
+        logMessage("Parse error in y(x): " + QString::fromStdString(err), true);
+        return false;
+    }
+    if (!zParser.compile(zStr.toStdString(), err)) {
+        logMessage("Parse error in z(x): " + QString::fromStdString(err), true);
+        return false;
+    }
+
+    double xMin    = m_tMinSpin->value();
+    double xMax    = m_tMaxSpin->value();
+    int    samples = m_samplesSpin->value();
+
+    if (xMin >= xMax) {
+        logMessage("Error: Min must be less than Max.", true);
+        return false;
+    }
+
+    Curve3D curve;
+    curve.style.color     = m_currentColor;
+    curve.style.lineWidth = (float)m_lineWidthSpin->value();
+    curve.label           = QString("y=%1, z=%2").arg(yStr, zStr);
+
+    const double step = (xMax - xMin) / (samples - 1);
+    int invalidCount = 0;
+
+    for (int i = 0; i < samples; ++i) {
+        const double x = xMin + i * step;
+        yParser.setVar("x", x);
+        zParser.setVar("x", x);
+        bool vy = true, vz = true;
+        double y = yParser.evaluate(vy);
+        double z = zParser.evaluate(vz);
+        Point3D pt;
+        pt.x = x; pt.y = y; pt.z = z;
+        pt.valid = vy && vz && std::isfinite(y) && std::isfinite(z);
+        if (!pt.valid) ++invalidCount;
+        curve.points.push_back(pt);
+    }
+
+    m_plot3D->addCurve(curve);
+
+    if (invalidCount > 0)
+        logMessage(QString("Note: %1 point(s) skipped.").arg(invalidCount));
+    else
+        logMessage("Plotted 3D explicit curve: " + curve.label);
+
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  3D Implicit Surface  F(x,y,z) = 0  (z-slice marching squares)
+// ─────────────────────────────────────────────────────────────
+
+bool MainWindow::generateImplicitSurface3D() {
+    QString fStr = m_fImplicit3D->text().trimmed();
+    if (fStr.isEmpty()) {
+        logMessage("Error: F(x,y,z) expression is empty.", true);
+        return false;
+    }
+
+    // Support "F = G" notation → rewrite as "(F)-(G)"
+    int eqPos = fStr.indexOf('=');
+    if (eqPos >= 0) {
+        QString lhs = fStr.left(eqPos).trimmed();
+        QString rhs = fStr.mid(eqPos + 1).trimmed();
+        if (lhs.isEmpty() || rhs.isEmpty()) {
+            logMessage("Error: invalid equation format. Use F(x,y,z)=G(x,y,z).", true);
+            return false;
+        }
+        fStr = "(" + lhs + ")-(" + rhs + ")";
+    }
+
+    ExprParser parser;
+    std::string err;
+    if (!parser.compile(fStr.toStdString(), err)) {
+        logMessage("Parse error in F(x,y,z): " + QString::fromStdString(err), true);
+        return false;
+    }
+
+    const double domainMin = m_tMinSpin->value();
+    const double domainMax = m_tMaxSpin->value();
+    const int    samples   = m_samplesSpin->value();
+
+    if (domainMin >= domainMax) {
+        logMessage("Error: Min must be less than Max.", true);
+        return false;
+    }
+
+    // Decide slice counts from the samples spinbox:
+    //   xyGrid  × xyGrid  samples per z-slice (marching squares resolution)
+    //   nZSlices z levels stacked to form the wireframe.
+    // Bounds: min 8 / max 60 z-slices; min 15 / max 100 xy-grid cells per side.
+    // These are chosen to keep the per-frame rendering fast enough for interactive use.
+    static constexpr int kMinZSlices = 8,   kMaxZSlices = 60;
+    static constexpr int kMinXYGrid  = 15,  kMaxXYGrid  = 100;
+    static constexpr double kEdgeDenomEps = 1e-12; // denominator safety for linear interpolation
+
+    const int nZSlices = std::max(kMinZSlices, std::min(samples,       kMaxZSlices));
+    const int xyGrid   = std::max(kMinXYGrid,  std::min(samples * 3,   kMaxXYGrid));
+
+    const double zStep  = (domainMax - domainMin) / (nZSlices - 1);
+    const double xyStep = (domainMax - domainMin) / (xyGrid   - 1);
+
+    // Helper: run 2-D marching-squares on one z-slice and collect 3-D segments.
+    auto addSlice = [&](double zVal) {
+        // Sample the field on the xy grid
+        struct Cell { double value{0}; bool valid{false}; };
+        std::vector<Cell> field((size_t)xyGrid * (size_t)xyGrid);
+        auto at = [&](int ix, int iy) -> Cell& {
+            return field[(size_t)iy * (size_t)xyGrid + (size_t)ix];
+        };
+
+        for (int iy = 0; iy < xyGrid; ++iy) {
+            const double y = domainMin + iy * xyStep;
+            for (int ix = 0; ix < xyGrid; ++ix) {
+                const double x = domainMin + ix * xyStep;
+                parser.setVar("x", x);
+                parser.setVar("y", y);
+                parser.setVar("z", zVal);
+                bool v = true;
+                const double f = parser.evaluate(v);
+                Cell &c = at(ix, iy);
+                c.value = f;
+                c.valid = v && std::isfinite(f);
+            }
+        }
+
+        // Marching squares: find zero crossings on each cell edge
+        auto crosses = [](double v1, double v2) {
+            if (!std::isfinite(v1) || !std::isfinite(v2)) return false;
+            return (v1 == 0.0) || (v2 == 0.0) || ((v1 < 0.0) != (v2 < 0.0));
+        };
+
+        Curve3D slice;
+        slice.style.color     = m_currentColor;
+        slice.style.lineWidth = (float)m_lineWidthSpin->value();
+
+        for (int iy = 0; iy < xyGrid - 1; ++iy) {
+            for (int ix = 0; ix < xyGrid - 1; ++ix) {
+                const Cell &a = at(ix,     iy    );
+                const Cell &b = at(ix + 1, iy    );
+                const Cell &c = at(ix,     iy + 1);
+                const Cell &d = at(ix + 1, iy + 1);
+                if (!a.valid || !b.valid || !c.valid || !d.valid) continue;
+
+                const double minV = std::min({a.value, b.value, c.value, d.value});
+                const double maxV = std::max({a.value, b.value, c.value, d.value});
+                if (minV > 0.0 || maxV < 0.0) continue;
+
+                const double x0 = domainMin + ix * xyStep;
+                const double x1 = x0 + xyStep;
+                const double y0 = domainMin + iy * xyStep;
+                const double y1 = y0 + xyStep;
+
+                // Collect edge intersection points
+                std::vector<std::pair<double,double>> pts;
+                pts.reserve(4);
+
+                auto addEdge = [&](double ax, double ay, double av,
+                                   double bx, double by, double bv) {
+                    if (!crosses(av, bv)) return;
+                    double denom = av - bv;
+                    double t = (std::abs(denom) > kEdgeDenomEps) ? (av / denom) : 0.5;
+                    t = std::clamp(t, 0.0, 1.0);
+                    pts.push_back({ax + t * (bx - ax), ay + t * (by - ay)});
+                };
+
+                addEdge(x0, y0, a.value, x1, y0, b.value); // bottom
+                addEdge(x1, y0, b.value, x1, y1, d.value); // right
+                addEdge(x0, y1, c.value, x1, y1, d.value); // top
+                addEdge(x0, y0, a.value, x0, y1, c.value); // left
+
+                if (pts.size() < 2) continue;
+                // Connect pairs of intersection points as line segments
+                for (size_t pi = 0; pi + 1 < pts.size(); pi += 2) {
+                    slice.points.push_back({pts[pi].first,     pts[pi].second,     zVal, true});
+                    slice.points.push_back({pts[pi+1].first,   pts[pi+1].second,   zVal, true});
+                    slice.points.push_back({0, 0, 0, false}); // pen-up
+                }
+            }
+        }
+
+        if (!slice.points.empty())
+            m_plot3D->addCurve(slice);
+    };
+
+    bool foundAny = false;
+    for (int iz = 0; iz < nZSlices; ++iz) {
+        const double z = domainMin + iz * zStep;
+        const int prevCount = m_plot3D->curveCount();
+        addSlice(z);
+        if (m_plot3D->curveCount() > prevCount) foundAny = true;
+    }
+
+    if (!foundAny) {
+        logMessage("Error: no surface points found in the given range.", true);
+        return false;
+    }
+
+    logMessage(QString("Plotted 3D implicit surface F(x,y,z)=0 (%1 z-slices, %2×%2 grid per slice).")
+               .arg(nZSlices).arg(xyGrid));
     return true;
 }
 
