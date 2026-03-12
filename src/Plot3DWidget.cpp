@@ -60,7 +60,7 @@ void Plot3DWidget::resetView() {
     m_azimuth   = 30.0;
     m_elevation = 25.0;
     m_zoom      = 60.0;
-    m_panX = m_panY = 0.0;
+    m_panX = m_panY = m_panZ = 0.0;
     update();
 }
 
@@ -72,7 +72,7 @@ QPointF Plot3DWidget::project(double wx, double wy, double wz, double *depth) co
     // Translate by pan
     double tx = wx - m_panX;
     double ty = wy - m_panY;
-    double tz = wz;
+    double tz = wz - m_panZ;
 
     const double az = m_azimuth   * M_PI / 180.0;
     const double el = m_elevation * M_PI / 180.0;
@@ -119,7 +119,7 @@ void Plot3DWidget::paintEvent(QPaintEvent *) {
     p.setFont(f);
     p.drawText(rect().adjusted(4, 0, -4, -4),
                Qt::AlignBottom | Qt::AlignLeft,
-               "Left-drag: rotate  |  Right-drag / Shift+drag: pan  |  Wheel: zoom  |  WASD: move camera  |  Double-click: reset");
+               "Left-drag: rotate  |  Right-drag / Shift+drag: pan  |  Wheel: zoom  |  WASD: fly camera  |  Double-click: reset");
 }
 
 void Plot3DWidget::drawGrid(QPainter &p) {
@@ -141,47 +141,62 @@ void Plot3DWidget::drawGrid(QPainter &p) {
 }
 
 void Plot3DWidget::drawAxes(QPainter &p) {
-    const double axisLen = 12.0;
+    // Draw a fixed orientation gizmo in the bottom-left corner.
+    // It always stays at the same screen position regardless of camera pan,
+    // and only reflects the current rotation (azimuth / elevation).
+    const int gizmoX = 50;
+    const int gizmoY = height() - 50;
+    const double gizmoLen = 32.0;
 
-    struct Axis {
-        double x0, y0, z0, x1, y1, z1;
-        QColor color;
-        QString label;
+    const double az = m_azimuth   * M_PI / 180.0;
+    const double el = m_elevation * M_PI / 180.0;
+
+    // Project a unit direction vector using only rotation (no pan, no perspective).
+    auto projectDir = [&](double dx, double dy, double dz) -> QPointF {
+        double rx =  dx * std::cos(az) + dy * std::sin(az);
+        double ry = -dx * std::sin(az) + dy * std::cos(az);
+        double rz =  dz;
+        double cx = rx;
+        double cy = ry * std::cos(el) - rz * std::sin(el);
+        // Orthographic projection for the gizmo (no perspective distortion)
+        return QPointF(gizmoX + cx * gizmoLen,
+                       gizmoY - cy * gizmoLen);
     };
 
-    std::array<Axis, 3> axes = {{
-        {0,0,0, axisLen,0,0, QColor(200,60,60), "X"},
-        {0,0,0, 0,axisLen,0, QColor(60,180,60), "Y"},
-        {0,0,0, 0,0,axisLen, QColor(60,100,220), "Z"},
+    const QPointF origin(gizmoX, gizmoY);
+
+    struct GizmoAxis { double dx, dy, dz; QColor color; QString label; };
+    const std::array<GizmoAxis, 3> axes = {{
+        {1, 0, 0, QColor(200,  60,  60), "X"},
+        {0, 1, 0, QColor( 60, 180,  60), "Y"},
+        {0, 0, 1, QColor( 60, 100, 220), "Z"},
     }};
 
+    // Draw each axis line and label
     for (const auto &ax : axes) {
-        QPen pen(ax.color, 3);
-        p.setPen(pen);
-        QPointF from = project(ax.x0, ax.y0, ax.z0);
-        QPointF to   = project(ax.x1, ax.y1, ax.z1);
-        p.drawLine(from, to);
+        QPointF tip = projectDir(ax.dx, ax.dy, ax.dz);
+        p.setPen(QPen(ax.color, 2));
+        p.drawLine(origin, tip);
+        p.setBrush(ax.color);
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(tip, 3.5, 3.5);
+        p.setBrush(Qt::NoBrush);
 
-        QPen arrowPen(ax.color, 2);
-        p.setPen(arrowPen);
-        p.drawEllipse(to, 2.0, 2.0);
-
-        p.setPen(ax.color);
         QFont f = p.font();
         f.setBold(true);
-        f.setPointSize(10);
+        f.setPointSize(9);
         p.setFont(f);
-        p.drawText(to + QPointF(4, 4), ax.label);
+        p.setPen(ax.color);
+        p.drawText(tip + QPointF(5, 4), ax.label);
         f.setBold(false);
         p.setFont(f);
     }
 
-    // Draw negative (dashed) part
-    QPen dashPen(QColor(180, 190, 200), 1, Qt::DashLine);
-    p.setPen(dashPen);
-    p.drawLine(project(0,0,0), project(-axisLen/2,0,0));
-    p.drawLine(project(0,0,0), project(0,-axisLen/2,0));
-    p.drawLine(project(0,0,0), project(0,0,-axisLen/2));
+    // Small circle at gizmo origin
+    p.setPen(QPen(QColor(100, 110, 130), 1));
+    p.setBrush(QColor(200, 205, 215));
+    p.drawEllipse(origin, 3.0, 3.0);
+    p.setBrush(Qt::NoBrush);
 }
 
 void Plot3DWidget::drawCurves(QPainter &p) {
@@ -291,20 +306,27 @@ void Plot3DWidget::mouseDoubleClickEvent(QMouseEvent *) {
 
 void Plot3DWidget::keyPressEvent(QKeyEvent *event) {
     double moveStep = std::max(kMinMoveStep, kBaseMoveDistance / m_zoom);
-    const double az = m_azimuth * M_PI / 180.0;
+    const double az = m_azimuth   * M_PI / 180.0;
+    const double el = m_elevation * M_PI / 180.0;
     const double cosAz = std::cos(az);
     const double sinAz = std::sin(az);
+    const double cosEl = std::cos(el);
+    const double sinEl = std::sin(el);
 
     bool handled = true;
     switch (event->key()) {
+    // W/S: fly in the camera lens direction (includes the elevation/Z component)
     case Qt::Key_W:
-        m_panX += sinAz * moveStep;
-        m_panY += cosAz * moveStep;
+        m_panX += sinEl * sinAz * moveStep;
+        m_panY += sinEl * cosAz * moveStep;
+        m_panZ += cosEl * moveStep;
         break;
     case Qt::Key_S:
-        m_panX -= sinAz * moveStep;
-        m_panY -= cosAz * moveStep;
+        m_panX -= sinEl * sinAz * moveStep;
+        m_panY -= sinEl * cosAz * moveStep;
+        m_panZ -= cosEl * moveStep;
         break;
+    // A/D: strafe left/right (horizontal, perpendicular to azimuth)
     case Qt::Key_A:
         m_panX -= cosAz * moveStep;
         m_panY += sinAz * moveStep;
