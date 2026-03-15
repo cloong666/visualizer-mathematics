@@ -6,6 +6,7 @@ This repository provides **two** standalone Windows desktop applications that vi
 |---|---|---|
 | **SFML Math Visualizer** *(new)* | C++ + [SFML 2.6](https://www.sfml-dev.org/) | `MathVisualizer.exe` |
 | Qt Curve Visualizer *(original)* | C++ + Qt 6 / Qt 5 | `CurveVisualizer.exe` |
+(It's worth to point out that the code based on SFML could available more function)
 
 ---
 
