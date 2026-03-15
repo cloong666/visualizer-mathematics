@@ -193,6 +193,7 @@ Both visualizers share the same hand-written recursive-descent parser (`src/Expr
 | Variables | `x` (explicit) · `t` (parametric) |
 
 ---
+(Currently,this repo is mainly based on vibecoding)
 
 ## License
 
