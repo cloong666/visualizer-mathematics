@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ── Options ──────────────────────────────────────────────────
 option(BUILD_QT_VISUALIZER   "Build the Qt-based visualizer"   ON)
 option(BUILD_SFML_VISUALIZER "Build the SFML-based visualizer" ON)
+option(BUILD_CPP_CORE        "Build the pure-C++ core skeleton (vm_core + vm_cli + tests)" ON)
 
 # ============================================================
 #  Qt-based visualizer (existing)
@@ -155,4 +156,11 @@ if(BUILD_SFML_VISUALIZER)
         RUNTIME DESTINATION bin
         BUNDLE  DESTINATION .
     )
+endif()
+
+# ============================================================
+#  Pure C++ core skeleton (vm_core + vm_cli + CTest tests)
+# ============================================================
+if(BUILD_CPP_CORE)
+    add_subdirectory(cpp)
 endif()
