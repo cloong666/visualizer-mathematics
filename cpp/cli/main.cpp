@@ -100,7 +100,7 @@ int main() {
     }
 
     // ── Demo 6: CSV export of x² over [0, 5] ────────────────────
-    section("CSV export: x^2 over [0, 5] (10 points) → sin_curve.csv");
+    section("CSV export: x^2 over [0, 5] (10 points) → x_squared.csv");
     {
         auto r = vm::sampleFunction("x^2", 0.0, 5.0, 10);
         if (!r.success) {
