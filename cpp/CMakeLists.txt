@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(vm_core_skeleton
-    VERSION 0.1.0
-    DESCRIPTION "Mathematics Visualizer – pure C++ core skeleton"
+    VERSION 1.0.0
+    DESCRIPTION "Mathematics Visualizer – pure C++ core (1.0: 2D curve visualization)"
     LANGUAGES CXX
 )
 
@@ -29,6 +29,7 @@ endif()
 # ─────────────────────────────────────────────────────────────────────────────
 add_library(vm_core STATIC
     core/src/Sampler.cpp
+    core/src/AsciiPlot.cpp
     ${EXPR_PARSER_DIR}/ExprParser.cpp
 )
 
@@ -65,5 +66,8 @@ enable_testing()
 
 add_executable(test_vm_core tests/test_sampler.cpp)
 target_link_libraries(test_vm_core PRIVATE vm_core)
-
 add_test(NAME vm_core_tests COMMAND test_vm_core)
+
+add_executable(test_vm_coord tests/test_coord_mapper.cpp)
+target_link_libraries(test_vm_coord PRIVATE vm_core)
+add_test(NAME vm_coord_tests COMMAND test_vm_coord)

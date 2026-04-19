@@ -1,21 +1,43 @@
-# C++ Core Skeleton — `cpp/`
+# C++ 2D Curve Visualizer — `cpp/`
 
-> **Branch:** `visualizer-mathematics/cpp`  
-> **Target:** Pure C++ migration – minimal viable core + CLI demo + unit tests
+> **Branch:** `visualizer-mathematics/cpp-1.0`  
+> **PR target:** `visualizer-mathematics/cpp`  
+> **Milestone:** 1.0 – 2D curve visualization (function sampling → ASCII/CSV output)
 
 ---
 
-## Goal
+## Series Roadmap
 
-This directory establishes the foundation for porting the project to pure C++:
+| Series | Branch | Scope |
+|--------|--------|-------|
+| **1.~** | `cpp-1.0`, `cpp-1.1`, … | 2D curve visualization – sampling, coordinate mapping, ASCII/CSV output |
+| **2.~** | `cpp-2.0`, `cpp-2.1`, … | 3D content – parametric surfaces, perspective projection |
+| **3.~** | `cpp-3.0`, … | Camera movement, per-point coordinate labels, interactive display |
 
-| Layer | Target |
-|-------|--------|
-| Core library (`vm_core`) | Expression-based function sampling, 2-D vector math |
-| CLI demo (`vm_cli`) | Headless "smoke test" – prints sampled points to stdout |
-| Unit tests (`test_vm_core`) | Self-contained assertion program, registered with CTest |
+> **Design philosophy:** Pure C++ is preferred over heavy GUI frameworks.
+> Where effect quality must trade off against C++ purity (e.g., no OpenGL),
+> we accept the reduced fidelity and note it in the relevant section below.
 
-GUI / rendering work (SFML, Qt, OpenGL …) is **out of scope** for this branch and lives in separate feature branches (`cpp-1.0`, `cpp-1.1`, `cpp-2.0`, …).
+---
+
+## What's New in 1.0
+
+| Feature | Module | Status |
+|---------|--------|--------|
+| Function sampling `y = f(x)` | `Sampler.h / .cpp` | ✅ (from `cpp` base) |
+| 2-D vector arithmetic | `Vec2.h` | ✅ (from `cpp` base) |
+| **Coordinate mapping** (math ↔ screen) | `CoordMapper.h` | ✅ **new** |
+| **ASCII terminal plot** | `AsciiPlot.h / .cpp` | ✅ **new** |
+| **CSV export** | `CsvExport.h` | ✅ **new** |
+| Unit tests – Sampler | `test_sampler.cpp` | ✅ (from `cpp` base) |
+| Unit tests – CoordMapper / AsciiPlot / CSV | `test_coord_mapper.cpp` | ✅ **new** |
+| CTest integration | `CMakeLists.txt` | ✅ |
+
+### Known Limitations (1.0)
+
+- **ASCII rendering only** – colour, anti-aliasing, and smooth curves are not available without a GUI library.  This is intentional (C++ purity over visual quality).
+- Single-variable explicit functions `y = f(x)` only; parametric / implicit curves are planned for `cpp-1.1`.
+- No interactive input – all parameters are hard-coded in `cli/main.cpp` or passed via API.
 
 ---
 
@@ -29,13 +51,18 @@ cpp/
 │   ├── include/
 │   │   └── vm_core/
 │   │       ├── Sampler.h        # Function sampling API
-│   │       └── Vec2.h           # 2-D vector type
+│   │       ├── Vec2.h           # 2-D vector type
+│   │       ├── CoordMapper.h    # Math ↔ screen linear coordinate mapping
+│   │       ├── AsciiPlot.h      # Terminal ASCII curve renderer
+│   │       └── CsvExport.h      # CSV export helper (header-only)
 │   └── src/
-│       └── Sampler.cpp          # Sampler implementation
+│       ├── Sampler.cpp          # Sampler implementation
+│       └── AsciiPlot.cpp        # AsciiPlot implementation
 ├── cli/
-│   └── main.cpp                 # Demo: sample functions, print results
+│   └── main.cpp                 # Demo: sampling → ASCII plot → CSV export
 └── tests/
-    └── test_sampler.cpp         # Unit tests (Sampler + Vec2)
+    ├── test_sampler.cpp         # Unit tests: Sampler + Vec2
+    └── test_coord_mapper.cpp    # Unit tests: CoordMapper, AsciiPlot, CsvExport
 ```
 
 The implementation reuses `src/ExprParser.h / .cpp` (the hand-written recursive-descent parser already present in the repository) – no additional dependencies are required.
@@ -55,7 +82,7 @@ No external libraries are needed.
 
 ## Configure & Build
 
-### Option A — standalone (build only the C++ skeleton)
+### Option A — standalone (build only the C++ core)
 
 ```bash
 # from the repo root
@@ -71,7 +98,7 @@ cmake -S . -B build \
   -DBUILD_QT_VISUALIZER=OFF \
   -DBUILD_SFML_VISUALIZER=OFF \
   -DBUILD_CPP_CORE=ON
-cmake --build build --target vm_core vm_cli test_vm_core
+cmake --build build --target vm_core vm_cli test_vm_core test_vm_coord
 ```
 
 Both options produce the same binaries; only the output directory differs.
@@ -83,90 +110,88 @@ Both options produce the same binaries; only the output directory differs.
 ```bash
 # After a standalone build (Option A):
 ./build_cpp/vm_cli
-
-# After a unified build (Option B):
-./build/vm_cli
 ```
 
-Expected output (abbreviated):
+The demo exercises all 1.0 features in sequence:
 
-```
-╔══════════════════════════════════════════════════╗
-║  vm_cli · Mathematics Visualizer Core Demo       ║
-╚══════════════════════════════════════════════════╝
-
-── Function sampling: sin(x) over [-π, π] (13 points) ──
-  x = -3.14159   y = -0.00000
-  x = -2.61799   y = -0.50000
-  ...
-  x =  3.14159   y =  0.00000
-
-── Function sampling: sqrt(x) over [-2, 4] (invalid points skipped) ──
-  4 valid point(s) out of 7 requested:
-  ...
-
-── Vec2 operations ──
-  a           = (3.0000, 4.0000)
-  ...
-  |a|         = 5.0000   (expected 5.0)
-  a · b       = 11.0000  (expected 11.0)
-```
+1. Samples `sin(x)` over `[-π, π]` and prints raw points.
+2. Samples `sqrt(x)` over `[-2, 4]`, skipping invalid (complex) values.
+3. Demonstrates `Vec2` arithmetic.
+4. Shows `CoordMapper` math→screen conversion.
+5. Renders `sin(x)` as an **ASCII plot** in the terminal.
+6. Exports `x²` sample data to `x_squared.csv`.
 
 ---
 
 ## Run the tests
 
 ```bash
-# Standalone build:
 cd build_cpp && ctest --output-on-failure
-
-# Unified build:
-cd build && ctest --output-on-failure
 ```
 
-All tests should report **pass** and the process should exit with code 0.
+Expected:
+```
+1/2 Test #1: vm_core_tests  ...  Passed
+2/2 Test #2: vm_coord_tests ...  Passed
+100% tests passed, 0 tests failed out of 2
+```
 
-You can also run the test executable directly for verbose output:
+Run individual test executables for verbose output:
 
 ```bash
-./build_cpp/test_vm_core
+./build_cpp/test_vm_core    # Sampler + Vec2 tests
+./build_cpp/test_vm_coord   # CoordMapper + AsciiPlot + CsvExport tests
 ```
 
 ---
 
-## Implemented Scope
+## Implemented Scope (1.0)
 
 | Feature | Status |
 |---------|--------|
 | Expression parser (`ExprParser`) | ✅ Reused from `src/` |
 | Function sampling (`vm::sampleFunction`) | ✅ |
 | 2-D vector arithmetic (`vm::Vec2`) | ✅ |
-| Unit tests – Sampler | ✅ |
-| Unit tests – Vec2 | ✅ |
+| Coordinate mapping (`vm::CoordMapper`) | ✅ |
+| ASCII terminal plot (`vm::asciiPlot`, `vm::asciiPlotAuto`) | ✅ |
+| CSV export (`vm::exportCsv`) | ✅ |
+| Unit tests – Sampler / Vec2 | ✅ |
+| Unit tests – CoordMapper / AsciiPlot / CsvExport | ✅ |
 | CTest integration | ✅ |
-
-## Out-of-Scope (planned for later branches)
-
-| Feature | Target branch |
-|---------|---------------|
-| Matrix / linear algebra utilities | `cpp-1.0` |
-| Coordinate-system transforms | `cpp-1.0` |
-| 2-D renderer (headless / SVG export) | `cpp-1.1` |
-| Interactive GUI (SFML / ImGui) | `cpp-2.0` |
-| 3-D surface sampling | `cpp-2.0` |
-| Parametric curve sampling | `cpp-1.1` |
 
 ---
 
-## Incremental Evolution
+## Next Steps
 
-The skeleton follows a deliberate layered design:
+### 1.1 (planned)
+- Parametric curve sampling `(x(t), y(t))`
+- Implicit curve approximation `F(x, y) = 0`
+- SVG / PNG file export (using a lightweight header-only library)
+
+### 2.0 (planned)
+- 3-D point / vector types (`Vec3`)
+- Parametric surface sampling `(x(u,v), y(u,v), z(u,v))`
+- Perspective projection utilities
+
+### 3.0 (planned)
+- Camera model (position, look-at, field of view)
+- Per-point coordinate label overlay
+- Interactive parameter adjustment (keyboard / file-driven)
+
+---
+
+## Incremental Architecture
 
 ```
-cpp-0.x (this branch)  →  vm_core (Sampler, Vec2)  +  vm_cli (headless demo)
-cpp-1.0                →  +Mat2/Mat3, CoordTransform, more samplers
-cpp-1.1                →  +parametric / implicit curve samplers, SVG export
-cpp-2.0                →  +interactive GUI layer (SFML or ImGui)
+cpp/core (vm_core library)           ← dependency-free, always buildable
+  └── Sampler, Vec2                  ← cpp base branch
+  └── CoordMapper, AsciiPlot, Csv   ← cpp-1.0  (this PR)
+  └── Parametric, Implicit samplers ← cpp-1.1
+  └── Vec3, Surface samplers        ← cpp-2.0
+  └── Camera, Labels                ← cpp-3.0
+
+cpp/cli (vm_cli executable)          ← demo / smoke-test for the current core
+cpp/tests                            ← self-contained assertion tests (CTest)
 ```
 
 All later additions should be placed in new subdirectories under `cpp/` (e.g., `cpp/render/`, `cpp/app/`) and registered as new CMake targets, so that `vm_core` remains a lean, dependency-free library.
