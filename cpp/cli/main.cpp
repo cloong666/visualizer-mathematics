@@ -1,8 +1,12 @@
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 #include <cmath>
 #include "vm_core/Sampler.h"
 #include "vm_core/Vec2.h"
+#include "vm_core/CoordMapper.h"
+#include "vm_core/AsciiPlot.h"
+#include "vm_core/CsvExport.h"
 
 static constexpr double PI = 3.141592653589793238462643383;
 
@@ -14,6 +18,7 @@ static void section(const char *title) {
 int main() {
     std::cout << "╔══════════════════════════════════════════════════╗\n"
               << "║  vm_cli · Mathematics Visualizer Core Demo       ║\n"
+              << "║  Version 1.0 – 2D Curve Visualization           ║\n"
               << "╚══════════════════════════════════════════════════╝\n";
 
     // ── Demo 1: function sampling ────────────────────────────────
@@ -61,6 +66,57 @@ int main() {
         std::cout << "  a · b       = " << a.dot(b)   << "   (expected 11.0)\n";
         std::cout << "  a.normalize = ("
                   << a.normalize().x << ", " << a.normalize().y << ")\n";
+    }
+
+    // ── Demo 4: CoordMapper ──────────────────────────────────────
+    section("CoordMapper: math [-π, π] → screen [0, 79]");
+    {
+        vm::CoordMapper mapX(-PI, PI, 0.0, 79.0);
+        vm::CoordMapper mapY(-1.0, 1.0, 0.0, 23.0, /*invertY=*/true);
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << "  math x=-π → col " << mapX.toScreen(-PI)  << "\n";
+        std::cout << "  math x= 0 → col " << mapX.toScreen(0.0)  << "\n";
+        std::cout << "  math x= π → col " << mapX.toScreen(PI)   << "\n";
+        std::cout << "  math y= 1 → row " << mapY.toScreen(1.0)  << "  (top)\n";
+        std::cout << "  math y= 0 → row " << mapY.toScreen(0.0)  << "  (mid)\n";
+        std::cout << "  math y=-1 → row " << mapY.toScreen(-1.0) << "  (bottom)\n";
+    }
+
+    // ── Demo 5: ASCII plot of sin(x) ─────────────────────────────
+    section("ASCII plot: sin(x) over [-π, π]");
+    {
+        auto r = vm::sampleFunction("sin(x)", -PI, PI, 200);
+        if (!r.success) {
+            std::cerr << "Error: " << r.errorMsg << "\n";
+            return 1;
+        }
+        vm::AsciiPlotOptions opts;
+        opts.width  = 72;
+        opts.height = 20;
+        auto rows = vm::asciiPlotAuto(r.points, opts);
+        for (const auto &row : rows) {
+            std::cout << row << "\n";
+        }
+    }
+
+    // ── Demo 6: CSV export of x² over [0, 5] ────────────────────
+    section("CSV export: x^2 over [0, 5] (10 points) → sin_curve.csv");
+    {
+        auto r = vm::sampleFunction("x^2", 0.0, 5.0, 10);
+        if (!r.success) {
+            std::cerr << "Error: " << r.errorMsg << "\n";
+            return 1;
+        }
+        std::ofstream f("x_squared.csv");
+        if (f.is_open()) {
+            vm::exportCsv(r.points, f);
+            std::cout << "  Written " << r.points.size()
+                      << " rows to x_squared.csv\n";
+        } else {
+            // Fall back to stdout if file cannot be created
+            std::cout << "  (file unavailable – printing to stdout)\n";
+            vm::exportCsv(r.points, std::cout);
+        }
     }
 
     std::cout << "\nDone.\n";
