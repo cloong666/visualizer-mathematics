@@ -1,38 +1,43 @@
-# 2D / 3D Curve Visualizer
+# Mathematics Visualizer — cpp-1.1
 
-This repository provides **two** standalone Windows desktop applications that visualise mathematical curves:
+> **Branch:** `visualizer-mathematics/cpp-1.1` → PR target: `cpp/version`
 
-| App | Technology | EXE name |
-|---|---|---|
-| **SFML Math Visualizer** *(new)* | C++ + [SFML 2.6](https://www.sfml-dev.org/) | `MathVisualizer.exe` |
-| Qt Curve Visualizer *(original)* | C++ + Qt 6 / Qt 5 | `CurveVisualizer.exe` |
-
-(It's worth to point out that the code based on SFML could available more function)
+A C++ mathematics curve visualizer with an interactive **SFML** GUI.  
+This release (1.1) migrates the project to a pure C++ + SFML stack and removes all legacy non-C++ code.
 
 ---
 
+## Migration Summary
 
-## Exe availability check
+### What was removed
 
-This repository stores source code and does **not** include prebuilt `.exe` files by default.  
-You can quickly check whether a local build already produced an exe:
+| Item | Reason |
+|------|--------|
+| `curve_visualizer.html` | HTML/JavaScript prototype; superseded by SFML GUI |
+| `src/CurveData.h` | Qt-specific data structure |
+| `src/Plot2DWidget.*` | Qt 2-D canvas widget |
+| `src/Plot3DWidget.*` | Qt 3-D canvas widget |
+| `src/MainWindow.*` | Qt main window |
+| `src/main.cpp` (Qt entry point) | Qt application entry point |
+| `.github/workflows/build-windows.yml` | Qt CI workflow |
 
-```bash
-python check_exe.py
-python check_exe.py --type qt
-```
+### What remains / was added
 
-Expected locations:
+| Item | Description |
+|------|-------------|
+| `src/ExprParser.h/.cpp` | Shared recursive-descent expression parser (C++, no dependencies) |
+| `sfml/` | SFML interactive 2-D function plotter (window, axes, curves, pan/zoom) |
+| `cpp/` | Pure C++ core library (`vm_core`), CLI demo, and unit tests |
+| `.github/workflows/build-sfml-windows.yml` | SFML CI workflow (Windows / MSVC x64) |
 
-- `build/MathVisualizer.exe` (SFML)
-- `build/CurveVisualizer.exe` (Qt)
+---
 
-## SFML Math Visualizer (Recommended – double-click to run)
+## SFML Math Visualizer
 
-A fully self-contained interactive 2D function plotter built with **SFML 2.6**.  
-No Qt installation required. The font is embedded in the binary so no extra files are needed.
+An interactive 2-D function plotter built with **SFML 2.6**.  
+No Qt installation required. The font is embedded in the binary.
 
-### What you can do
+### Features
 
 | Interaction | How |
 |---|---|
@@ -42,158 +47,152 @@ No Qt installation required. The font is embedded in the binary so no extra file
 | **Reset view** | Press `R` |
 | **Quit** | Press `Esc` or close window |
 
-### Built-in functions (12 total)
+### Built-in functions (12)
 
-`sin(x)` · `cos(x)` · `tan(x)` · `x²` · `x³−3x` · `sin(x)/x` ·  
+`sin(x)` · `cos(x)` · `tan(x)` · `x²` · `x³−3x` · `sin(x)/x` ·
 `exp(−x²)` · `√|x|` · `1/(1+x²)` · `x·sin(x)` · `sin(3x)·cos(2x)` · `floor(x)`
-
-### Building the SFML visualizer on Windows
-
-#### Prerequisites
-
-| Tool | Version |
-|---|---|
-| C++ compiler | MSVC 2019 or 2022 (x64) |
-| CMake | ≥ 3.16 |
-| Git | any recent version |
-| Internet access | required once (FetchContent downloads SFML 2.6.2 automatically) |
-
-#### Steps
-
-```powershell
-# 1. Open a "Developer Command Prompt for VS 2019/2022" (x64 Native)
-
-# 2. Clone the repo (if not already done)
-git clone https://github.com/cloong666/visualizer-mathematics.git
-cd visualizer-mathematics
-
-# 3. Configure  – CMake will automatically download SFML via FetchContent
-cmake -B build -S . `
-  -G "NMake Makefiles" `
-  -DCMAKE_BUILD_TYPE=Release `
-  -DBUILD_QT_VISUALIZER=OFF `
-  -DBUILD_SFML_VISUALIZER=ON
-
-# 4. Build
-cmake --build build --config Release --target MathVisualizer
-
-# 5. The executable is at:
-#      build\MathVisualizer.exe
-#    Any required SFML DLLs are copied next to it automatically.
-```
-
-Double-click `build\MathVisualizer.exe` – a window will open showing the visualizer.
-
-#### CMake options
-
-| Option | Default | Description |
-|---|---|---|
-| `BUILD_SFML_VISUALIZER` | `ON` | Build `MathVisualizer.exe` |
-| `BUILD_QT_VISUALIZER` | `ON` | Build the original Qt `CurveVisualizer.exe` |
 
 ---
 
-## CI / Windows artifact
+## Dependencies
 
-A GitHub Actions workflow (`.github/workflows/build-sfml-windows.yml`) runs on every push / pull request and:
+| Tool | Version | Notes |
+|------|---------|-------|
+| C++ compiler | MSVC 2019/2022, GCC ≥ 9, or Clang ≥ 10 | C++17 required |
+| CMake | ≥ 3.16 | |
+| SFML | 2.6 | Downloaded automatically via FetchContent if not installed |
+| Git | any | Required for FetchContent |
+
+---
+
+## Build & Run
+
+### Windows (MSVC)
+
+```powershell
+# Open "Developer Command Prompt for VS 2019/2022" (x64 Native)
+
+git clone https://github.com/cloong666/visualizer-mathematics.git
+cd visualizer-mathematics
+
+# Configure – SFML is downloaded automatically if not found
+cmake -B build -S . `
+  -G "NMake Makefiles" `
+  -DCMAKE_BUILD_TYPE=Release `
+  -DBUILD_SFML_VISUALIZER=ON `
+  -DBUILD_CPP_CORE=OFF
+
+cmake --build build --target MathVisualizer
+
+# Run
+build\MathVisualizer.exe
+```
+
+### Linux / macOS
+
+```bash
+# Install SFML system package (optional – CMake will fetch it otherwise)
+# Ubuntu/Debian: sudo apt install libsfml-dev
+# macOS:         brew install sfml
+
+cmake -B build -S . \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SFML_VISUALIZER=ON \
+  -DBUILD_CPP_CORE=OFF
+
+cmake --build build --target MathVisualizer
+
+./build/MathVisualizer
+```
+
+### Build only the pure C++ core + tests (no GUI, no SFML)
+
+```bash
+cmake -S cpp -B build_cpp -DCMAKE_BUILD_TYPE=Release
+cmake --build build_cpp
+cd build_cpp && ctest --output-on-failure
+```
+
+---
+
+## Project Structure
+
+```
+.
+├── CMakeLists.txt                     # Unified build (SFML + cpp core)
+├── README.md                          # This file
+├── .github/
+│   └── workflows/
+│       └── build-sfml-windows.yml    # CI: SFML build (Windows / MSVC x64)
+├── src/
+│   ├── ExprParser.h / .cpp           # Recursive-descent expression parser (shared)
+├── sfml/
+│   ├── main.cpp                      # SFML entry point
+│   ├── App.h / App.cpp               # Window lifecycle + input handling
+│   ├── Renderer.h / Renderer.cpp     # Grid, axes, curve, HUD rendering
+│   ├── ViewTransform.h               # World ↔ screen coordinate mapping
+│   ├── MathFunctions.h               # Built-in function catalogue
+│   └── resources/
+│       └── FontData.h                # Embedded DejaVuSans font (binary array)
+└── cpp/
+    ├── CMakeLists.txt                 # Standalone or included build
+    ├── README.md                      # cpp module documentation
+    ├── core/include/vm_core/          # Public headers (Sampler, Vec2, CoordMapper, …)
+    ├── core/src/                      # Library implementation
+    ├── cli/main.cpp                   # CLI demo (ASCII plot, CSV export)
+    └── tests/                         # CTest unit tests
+```
+
+---
+
+## CI / Downloadable artifact
+
+A GitHub Actions workflow runs on every push / PR and:
 
 1. Sets up MSVC 2022 (x64).
 2. Configures CMake – SFML 2.6.2 is fetched automatically.
 3. Builds `MathVisualizer.exe`.
 4. Packages the exe + DLLs into `MathVisualizer-Windows-x64.zip`.
-5. Uploads the result as a **downloadable artifact** named `MathVisualizer-Windows-x64`.
+5. Uploads the result as a downloadable artifact.
 
-### Downloading the pre-built exe
-
-1. Go to the **Actions** tab in this repository.
-2. Click the latest successful *SFML Math Visualizer – Windows Build* workflow run.
-3. Under **Artifacts**, click `MathVisualizer-Windows-x64` to download the ZIP.
-4. Extract the ZIP and run `MathVisualizer.exe` — no installation required.
+To get the pre-built exe:
+1. Go to the **Actions** tab.
+2. Click the latest *SFML Math Visualizer – Windows Build* run.
+3. Download `MathVisualizer-Windows-x64` artifact, extract, and run.
 
 ---
 
-## Project structure
+## Known Limitations (cpp-1.1)
 
-```
-.
-├── CMakeLists.txt                         # Unified build file (Qt + SFML targets)
-├── README.md
-├── .github/
-│   └── workflows/
-│       ├── build-windows.yml              # CI: Qt build
-│       └── build-sfml-windows.yml         # CI: SFML build (new)
-├── src/
-│   ├── ExprParser.h / .cpp               # Recursive-descent expression parser (shared)
-│   ├── CurveData.h                       # Qt curve data structures
-│   ├── Plot2DWidget.h / .cpp             # Qt 2D canvas
-│   ├── Plot3DWidget.h / .cpp             # Qt 3D canvas
-│   ├── MainWindow.h / .cpp               # Qt main window
-│   └── main.cpp                          # Qt entry point
-└── sfml/
-    ├── main.cpp                          # SFML entry point
-    ├── App.h / App.cpp                   # Window lifecycle + input handling
-    ├── Renderer.h / Renderer.cpp         # Grid, axes, curve, HUD rendering
-    ├── ViewTransform.h                   # World↔screen coordinate mapping
-    ├── MathFunctions.h                   # Built-in function catalogue
-    └── resources/
-        └── FontData.h                    # Embedded DejaVuSans font (binary array)
-```
+- **Linux/macOS** – the code compiles with GCC/Clang but CI only covers Windows (MSVC). No platform-specific issues are known; if you encounter build problems, please open an issue.
+- **SFML must be available at build time** (FetchContent handles this automatically).
+- Only explicit single-variable functions `y = f(x)` are supported; parametric / implicit curves are planned for a later release.
+- The embedded font (DejaVuSans) covers Latin/Greek characters; extended Unicode is not rendered.
 
 ---
 
-## Original Qt Curve Visualizer
+## Future Plans
 
-### Features
-
-#### Curve input modes
-
-| Mode | Example input |
-|---|---|
-| **2D Explicit** `y = f(x)` | `sin(x)`, `x^2 + 1`, `exp(-x^2)` |
-| **2D General Curve** `F(x,y)=0` | `x^2 + y^2 = 4`, `(x^2+y^2)^2 = 2*(x^2-y^2)` |
-| **2D Parametric** `x(t), y(t)` | `cos(t)`, `sin(t)` |
-| **3D Parametric** `x(t), y(t), z(t)` | `cos(t)`, `sin(t)`, `t/5` |
-| **3D Surface** `z = f(x,y)` | `x^2 + y^2`, `x^2-y^2`, `sin(x)*cos(y)` |
-
-#### Interaction
-
-| Widget | Interaction |
-|---|---|
-| **2D canvas** | Left-drag: pan · Scroll: zoom · Double-click: reset view |
-| **3D canvas** | Left-drag: rotate · Right-drag / Shift+drag: pan · Scroll: zoom · `W`/`A`/`S`/`D`: move camera · Double-click: reset |
-
-### Building the Qt visualizer on Windows
-
-```powershell
-# Install Qt via the online installer or aqtinstall, then set Qt6_DIR
-
-# Open "Developer Command Prompt for VS 2019/2022"
-
-cmake -B build -S . -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release `
-  -DCMAKE_PREFIX_PATH="C:\Qt\6.7.3\msvc2019_64" `
-  -DBUILD_SFML_VISUALIZER=OFF
-
-cmake --build build --config Release
-
-# Deploy Qt DLLs
-windeployqt --release build\CurveVisualizer.exe
-```
+| Milestone | Scope |
+|-----------|-------|
+| **1.2** | Parametric curve sampling `(x(t), y(t))`; implicit curve approximation `F(x,y)=0` |
+| **2.0** | 3-D types (`Vec3`), parametric surface sampling, perspective projection |
+| **3.0** | Camera model, per-point coordinate labels, fully interactive parameter adjustment |
 
 ---
 
-## Expression parser
+## Expression Parser
 
-Both visualizers share the same hand-written recursive-descent parser (`src/ExprParser.h / .cpp`).
+Both the SFML visualizer and the cpp core reuse the same hand-written recursive-descent parser (`src/ExprParser.h / .cpp`).
 
 | Category | Tokens |
-|---|---|
+|----------|--------|
 | Arithmetic | `+` `-` `*` `/` `^` |
 | Functions | `sin cos tan asin acos atan sinh cosh tanh exp log ln log10 log2 sqrt cbrt abs ceil floor round sign min max pow` |
 | Constants | `pi`, `e` |
 | Variables | `x` (explicit) · `t` (parametric) |
 
 ---
-(Currently,this repo is mainly based on vibecoding)
 
 ## License
 
