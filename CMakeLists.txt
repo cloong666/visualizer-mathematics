@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(CurveVisualizer
-    VERSION 1.0.0
-    DESCRIPTION "2D/3D Cartesian Coordinate Curve Visualizer"
+project(MathVisualizer
+    VERSION 1.1.0
+    DESCRIPTION "2D Cartesian Coordinate Curve Visualizer – SFML GUI"
     LANGUAGES CXX
 )
 
@@ -10,78 +10,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ── Options ──────────────────────────────────────────────────
-option(BUILD_QT_VISUALIZER   "Build the Qt-based visualizer"   ON)
 option(BUILD_SFML_VISUALIZER "Build the SFML-based visualizer" ON)
 option(BUILD_CPP_CORE        "Build the pure-C++ core skeleton (vm_core + vm_cli + tests)" ON)
 
 # ============================================================
-#  Qt-based visualizer (existing)
-# ============================================================
-if(BUILD_QT_VISUALIZER)
-    # Qt auto-tools
-    set(CMAKE_AUTOMOC ON)
-    set(CMAKE_AUTOUIC ON)
-    set(CMAKE_AUTORCC ON)
-
-    # Find Qt (prefer Qt6, fall back to Qt5)
-    find_package(Qt6 COMPONENTS Core Widgets QUIET)
-    if(Qt6_FOUND)
-        set(QT_VERSION_MAJOR 6)
-        message(STATUS "Using Qt6")
-    else()
-        find_package(Qt5 COMPONENTS Core Widgets QUIET)
-        if(Qt5_FOUND)
-            set(QT_VERSION_MAJOR 5)
-            message(STATUS "Using Qt5 (Qt6 not found)")
-        else()
-            message(STATUS "Qt not found – skipping Qt visualizer")
-            set(BUILD_QT_VISUALIZER OFF)
-        endif()
-    endif()
-endif()
-
-if(BUILD_QT_VISUALIZER)
-    set(QT_SOURCES
-        src/main.cpp
-        src/ExprParser.cpp
-        src/Plot2DWidget.cpp
-        src/Plot3DWidget.cpp
-        src/MainWindow.cpp
-    )
-    set(QT_HEADERS
-        src/ExprParser.h
-        src/CurveData.h
-        src/Plot2DWidget.h
-        src/Plot3DWidget.h
-        src/MainWindow.h
-    )
-
-    if(WIN32)
-        add_executable(CurveVisualizer WIN32 ${QT_SOURCES} ${QT_HEADERS})
-    else()
-        add_executable(CurveVisualizer ${QT_SOURCES} ${QT_HEADERS})
-    endif()
-
-    if(QT_VERSION_MAJOR EQUAL 6)
-        target_link_libraries(CurveVisualizer PRIVATE Qt6::Core Qt6::Widgets)
-    else()
-        target_link_libraries(CurveVisualizer PRIVATE Qt5::Core Qt5::Widgets)
-    endif()
-
-    target_include_directories(CurveVisualizer PRIVATE src)
-
-    if(MSVC)
-        target_compile_definitions(CurveVisualizer PRIVATE _USE_MATH_DEFINES)
-    endif()
-
-    install(TARGETS CurveVisualizer
-        RUNTIME DESTINATION bin
-        BUNDLE  DESTINATION .
-    )
-endif()
-
-# ============================================================
-#  SFML-based interactive math visualizer (new)
+#  SFML-based interactive math visualizer
 # ============================================================
 if(BUILD_SFML_VISUALIZER)
     # Try to find a system-installed SFML first; fall back to FetchContent so

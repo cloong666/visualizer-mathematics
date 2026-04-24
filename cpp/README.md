@@ -1,8 +1,8 @@
 # C++ 2D Curve Visualizer — `cpp/`
 
-> **Branch:** `visualizer-mathematics/cpp-1.0`  
-> **PR target:** `visualizer-mathematics/cpp`  
-> **Milestone:** 1.0 – 2D curve visualization (function sampling → ASCII/CSV output)
+> **Branch:** `visualizer-mathematics/cpp-1.1`  
+> **PR target:** `cpp/version`  
+> **Milestone:** 1.1 – SFML GUI 2D curve visualization + removal of legacy non-C++ code
 
 ---
 
@@ -20,24 +20,30 @@
 
 ---
 
-## What's New in 1.0
+## What's New in 1.1
 
 | Feature | Module | Status |
 |---------|--------|--------|
-| Function sampling `y = f(x)` | `Sampler.h / .cpp` | ✅ (from `cpp` base) |
-| 2-D vector arithmetic | `Vec2.h` | ✅ (from `cpp` base) |
-| **Coordinate mapping** (math ↔ screen) | `CoordMapper.h` | ✅ **new** |
-| **ASCII terminal plot** | `AsciiPlot.h / .cpp` | ✅ **new** |
-| **CSV export** | `CsvExport.h` | ✅ **new** |
-| Unit tests – Sampler | `test_sampler.cpp` | ✅ (from `cpp` base) |
-| Unit tests – CoordMapper / AsciiPlot / CSV | `test_coord_mapper.cpp` | ✅ **new** |
-| CTest integration | `CMakeLists.txt` | ✅ |
+| SFML interactive window | `sfml/App.*` | ✅ **new** |
+| 2-D grid + axes rendering | `sfml/Renderer.*` | ✅ **new** |
+| 2-D curve rendering (2000 samples) | `sfml/Renderer.*` | ✅ **new** |
+| Pan (mouse drag) + Zoom (scroll) | `sfml/App.*` | ✅ **new** |
+| Function catalogue (12 built-ins) | `sfml/MathFunctions.h` | ✅ **new** |
+| World ↔ screen coordinate mapping | `sfml/ViewTransform.h` | ✅ **new** |
+| Embedded font (no file dependency) | `sfml/resources/FontData.h` | ✅ **new** |
+| **Removed legacy code** | Qt GUI + HTML/JS | ✅ **cleanup** |
 
-### Known Limitations (1.0)
+### What was removed (1.1)
 
-- **ASCII rendering only** – colour, anti-aliasing, and smooth curves are not available without a GUI library.  This is intentional (C++ purity over visual quality).
-- Single-variable explicit functions `y = f(x)` only; parametric / implicit curves are planned for `cpp-1.1`.
-- No interactive input – all parameters are hard-coded in `cli/main.cpp` or passed via API.
+- `curve_visualizer.html` (HTML/JavaScript prototype)
+- `src/CurveData.h`, `src/Plot2DWidget.*`, `src/Plot3DWidget.*`, `src/MainWindow.*`, `src/main.cpp` (Qt GUI)
+- `.github/workflows/build-windows.yml` (Qt CI workflow)
+
+### Known Limitations (1.1)
+
+- **ASCII rendering only in the cpp core** – colour, anti-aliasing, and smooth curves require the SFML visualizer.
+- Single-variable explicit functions `y = f(x)` only; parametric / implicit curves are planned for `cpp-1.2`.
+- No interactive input in the CLI demo – all parameters are hard-coded in `cli/main.cpp` or passed via API.
 
 ---
 
@@ -95,7 +101,6 @@ cmake --build build_cpp
 ```bash
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_QT_VISUALIZER=OFF \
   -DBUILD_SFML_VISUALIZER=OFF \
   -DBUILD_CPP_CORE=ON
 cmake --build build --target vm_core vm_cli test_vm_core test_vm_coord

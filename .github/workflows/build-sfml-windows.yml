@@ -2,9 +2,9 @@ name: SFML Math Visualizer – Windows Build
 
 on:
   push:
-    branches: [ "main", "feat/**", "copilot/**" ]
+    branches: [ "main", "feat/**", "copilot/**", "visualizer-mathematics/**" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "cpp/version" ]
   release:
     types: [ published ]
 
@@ -32,8 +32,8 @@ jobs:
           cmake -B build -S . `
             -G "NMake Makefiles" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DBUILD_QT_VISUALIZER=OFF `
-            -DBUILD_SFML_VISUALIZER=ON
+            -DBUILD_SFML_VISUALIZER=ON `
+            -DBUILD_CPP_CORE=OFF
 
       # ── 4. Build ──────────────────────────────────────────────
       - name: Build MathVisualizer
